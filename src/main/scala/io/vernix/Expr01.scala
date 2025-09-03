@@ -9,18 +9,19 @@ import scala.util.Try
 object Expr01 extends ZIOAppDefault {
 
 	override def run: ZIO[ZIOAppArgs & Scope, Any, Any] = {
-
-		val e: Program[Int] =
-			Program.let("x", Program.value(2) + Program.value(3)) *>
-				Program.funDef[Int, Int]("triple", "i", Program.variable[Int]("i") * Program.value(3)) *>
-				(Program.variable[Int]("x")
-					+ Program.variable[Int]("x")
-					+ Program.function[Int, Int]("triple", Program.variable[Int]("x"))
-					+ Program.function[Int, Int]("triple", Program.value(1))
-					//					+ Program.variable[Int]("i")
+		import Program.*
+		val e: Program[_] =
+			let("x", value(2)) *>
+				let("x", value(2) + value(3)) *>
+				funDef[Int, Int]("triple", "i", variable[Int]("i") * value(3)) *>
+				(variable[Int]("x")
+					+ variable[Int]("x")
+					+ function[Int, Int]("triple", variable[Int]("x"))
+					+ function[Int, Int]("triple", value(1))
+					//					+ variable[Int]("i")
 					)
-		val magarie: Program[_] = e
-		val ce: Task[Expr[Int]] = ZIO.fromTry(Program.compile(OpContext.empty)(e))
+		val ce: Task[Expr[_]] = ZIO.fromTry(compileUnknown(OpContext.empty)(e))
+//		val ce: Task[Expr[Int]] = ZIO.fromTry(compile(OpContext.empty)(e))
 		for {
 			_ <- printLine("===============================")
 			_ <- printLine(s"initial code: \n\n${e[[a] =>> String]}")
