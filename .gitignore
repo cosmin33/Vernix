@@ -48,4 +48,6 @@ build/
 .bsp/
 
 ### Build Tools ###
+cs
+sbt-*.zip
 sbt/
