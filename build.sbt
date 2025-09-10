@@ -1,4 +1,4 @@
-ThisBuild / scalaVersion     := "3.3.6"
+ThisBuild / scalaVersion     := "3.7.2"
 ThisBuild / version          := "0.1.0-SNAPSHOT"
 
 lazy val root = (project in file("."))
@@ -12,6 +12,7 @@ lazy val root = (project in file("."))
       "org.typelevel" %% "cats-core" % "2.9.0",
       "org.typelevel" %% "spire" % "0.18.0",
       "nl.vroste" %% "rezilience" % "0.10.4",
+      "com.lihaoyi" %% "fastparse" % "3.1.1",
     ),
     testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
   )
