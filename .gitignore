@@ -46,3 +46,8 @@ build/
 
 ### Scala ###
 .bsp/
+
+### Build Tools ###
+cs
+sbt-*.zip
+sbt/
