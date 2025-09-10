@@ -15,6 +15,10 @@ trait Program[A]:
 		def apply[F[_]: Statements]: F[A] = Statements[F].mul(self[F], that[F])
 	def /(that: Program[A])(using Type[A], Fractional[A]): Program[A] = new Program[A]:
 		def apply[F[_]: Statements]: F[A] = Statements[F].div(self[F], that[F])
+	def quot(that: Program[A])(using Type[A], Integral[A]): Program[A] = new Program[A]:
+		def apply[F[_]: Statements]: F[A] = Statements[F].quot(self[F], that[F])
+	def %(that: Program[A])(using Type[A], Integral[A]): Program[A] = new Program[A]:
+		def apply[F[_]: Statements]: F[A] = Statements[F].mod(self[F], that[F])
 	def neg(using Type[A], Numeric[A]): Program[A] = new Program[A]:
 		def apply[F[_]: Statements]: F[A] = Statements[F].neg(self[F])
 	def abs(using Type[A], Numeric[A]): Program[A] = new Program[A]:

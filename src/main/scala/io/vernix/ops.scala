@@ -11,6 +11,8 @@ trait Ops[F[_]]:
 	def sub[N: {Type, Numeric}](l: F[N], r: F[N]): F[N]
 	def mul[N: {Type, Numeric}](l: F[N], r: F[N]): F[N]
 	def div[N: {Type, Fractional}](l: F[N], r: F[N]): F[N]
+	def quot[N: {Type, Integral}](l: F[N], r: F[N]): F[N]
+	def mod[N: {Type, Integral}](l: F[N], r: F[N]): F[N]
 	def neg[N: {Type, Numeric}](a: F[N]): F[N]
 	def abs[N: {Type, Numeric}](a: F[N]): F[N]
 	def concat(l: F[String], r: F[String]): F[String]
@@ -35,6 +37,8 @@ object Ops:
 			def mul[N: {Type, Numeric}](l: Task[N], r: Task[N]): Task[N] = l.zipWith(r)(Numeric[N].times)
 			def sub[N: {Type, Numeric}](l: Task[N], r: Task[N]): Task[N] = l.zipWith(r)(Numeric[N].minus)
 			def div[N: {Type, Fractional}](l: Task[N], r: Task[N]): Task[N] = l.zipWith(r)(Fractional[N].div)
+			def quot[N: {Type, Integral}](l: Task[N], r: Task[N]): Task[N] = l.zipWith(r)(Integral[N].quot)
+			def mod[N: {Type, Integral}](l: Task[N], r: Task[N]): Task[N] = l.zipWith(r)(Integral[N].rem)
 			def neg[N: {Type, Numeric}](a: Task[N]): Task[N] = a.map(Numeric[N].negate)
 			def abs[N: {Type, Numeric}](a: Task[N]): Task[N] = a.map(Numeric[N].abs)
 			def len(fa: Task[String]): Task[Int] = fa.map(_.length)
@@ -63,6 +67,8 @@ object Ops:
 			def sub[N: {Type, Numeric}](l: Try[N], r: Try[N]): Try[N] = l.flatMap(a => r.map(b => Numeric[N].minus(a, b)))
 			def mul[N: {Type, Numeric}](l: Try[N], r: Try[N]): Try[N] = l.flatMap(a => r.map(b => Numeric[N].times(a, b)))
 			def div[N: {Type, Fractional}](l: Try[N], r: Try[N]): Try[N] = l.flatMap(a => r.map(b => Fractional[N].div(a, b)))
+			def quot[N: {Type, Integral}](l: Try[N], r: Try[N]): Try[N] = l.flatMap(a => r.map(b => Integral[N].quot(a, b)))
+			def mod[N: {Type, Integral}](l: Try[N], r: Try[N]): Try[N] = l.flatMap(a => r.map(b => Integral[N].rem(a, b)))
 			def neg[N: {Type, Numeric}](a: Try[N]): Try[N] = a.map(Numeric[N].negate)
 			def abs[N: {Type, Numeric}](a: Try[N]): Try[N] = a.map(Numeric[N].abs)
 			def len(fa: Try[String]): Try[Int] = fa.map(_.length)
@@ -91,6 +97,8 @@ object Ops:
 		def sub[N: {Type, Numeric}](l: String, r: String): String = s"($l - $r)"
 		def mul[N: {Type, Numeric}](l: String, r: String): String = s"($l * $r)"
 		def div[N: {Type, Fractional}](l: String, r: String): String = s"($l / $r)"
+		def quot[N: {Type, Integral}](l: String, r: String): String = s"($l / $r)"
+		def mod[N: {Type, Integral}](l: String, r: String): String = s"($l % $r)"
 		def neg[N: {Type, Numeric}](a: String): String = s"(-$a)"
 		def abs[N: {Type, Numeric}](a: String): String = s"abs($a)"
 		def len(fa: String): String = s"$fa.len"
@@ -125,6 +133,8 @@ object Ops:
 		def sub[N: {Type, Numeric}](l: Type[N], r: Type[N]): Type[N] = Type[N]
 		def mul[N: {Type, Numeric}](l: Type[N], r: Type[N]): Type[N] = Type[N]
 		def div[N: {Type, Fractional}](l: Type[N], r: Type[N]): Type[N] = Type[N]
+		def quot[N: {Type, Integral}](l: Type[N], r: Type[N]): Type[N] = Type[N]
+		def mod[N: {Type, Integral}](l: Type[N], r: Type[N]): Type[N] = Type[N]
 		def neg[N: {Type, Numeric}](a: Type[N]): Type[N] = Type[N]
 		def abs[N: {Type, Numeric}](a: Type[N]): Type[N] = Type[N]
 		def len(fa: Type[String]): Type[Int] = Type[Int]
@@ -156,17 +166,21 @@ object Ops:
 		val typeK: TypeK[IdentState] = new TypeK[IdentState]:
 			def name: String = "IdentState[_]"
 		def value[A: Type](v: A): IdentState[String] = State.pure(v.toString).ident
-		def add[N: {Type, Numeric}](l: IdentState[N], r: IdentState[N]): IdentState[N] = 
+		def add[N: {Type, Numeric}](l: IdentState[N], r: IdentState[N]): IdentState[N] =
 			l.flatMap(l => r.map(r => s"($l + $r)"))
-		def sub[N: {Type, Numeric}](l: IdentState[N], r: IdentState[N]): IdentState[N] = 
+		def sub[N: {Type, Numeric}](l: IdentState[N], r: IdentState[N]): IdentState[N] =
 			l.flatMap(l => r.map(r => s"($l - $r)"))
-		def mul[N: {Type, Numeric}](l: IdentState[N], r: IdentState[N]): IdentState[N] = 
+		def mul[N: {Type, Numeric}](l: IdentState[N], r: IdentState[N]): IdentState[N] =
 			l.flatMap(l => r.map(r => s"($l * $r)"))
-		def div[N: {Type, Fractional}](l: IdentState[N], r: IdentState[N]): IdentState[N] = 
+		def div[N: {Type, Fractional}](l: IdentState[N], r: IdentState[N]): IdentState[N] =
 			l.flatMap(l => r.map(r => s"($l / $r)"))
-		def neg[N: {Type, Numeric}](a: IdentState[N]): IdentState[N] = 
+		def quot[N: {Type, Integral}](l: IdentState[N], r: IdentState[N]): IdentState[N] = 
+			l.flatMap(l => r.map(r => s"($l / $r)"))
+		def mod[N: {Type, Integral}](l: IdentState[N], r: IdentState[N]): IdentState[N] = 
+			l.flatMap(l => r.map(r => s"($l % $r)"))
+		def neg[N: {Type, Numeric}](a: IdentState[N]): IdentState[N] =
 			a.map(a => s"(-$a)")
-		def abs[N: {Type, Numeric}](a: IdentState[N]): IdentState[N] = 
+		def abs[N: {Type, Numeric}](a: IdentState[N]): IdentState[N] =
 			a.map(a => s"abs($a)")
 		def len(fa: IdentState[String]): IdentState[String] =
 			fa.map(v => s"$v.len")

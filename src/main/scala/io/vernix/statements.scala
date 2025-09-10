@@ -63,6 +63,10 @@ object Statements:
 				State(ctx => (ctx, l.runA(ctx).value * r.runA(ctx).value))
 			def div[N: {Type, Fractional}](l: CtxState[Expr[N]], r: CtxState[Expr[N]]): CtxState[Expr[N]] =
 				State(ctx => (ctx, l.runA(ctx).value / r.runA(ctx).value))
+			def quot[N: {Type, Integral}](l: CtxState[Expr[N]], r: CtxState[Expr[N]]): CtxState[Expr[N]] =
+				State(ctx => (ctx, l.runA(ctx).value.quot(r.runA(ctx).value)))
+			def mod[N: {Type, Integral}](l: CtxState[Expr[N]], r: CtxState[Expr[N]]): CtxState[Expr[N]] =
+				State(ctx => (ctx, l.runA(ctx).value.%(r.runA(ctx).value)))
 			def neg[N: {Type, Numeric}](a: CtxState[Expr[N]]): CtxState[Expr[N]] =
 				State(ctx => (ctx, a.runA(ctx).value.neg))
 			def abs[N: {Type, Numeric}](a: CtxState[Expr[N]]): CtxState[Expr[N]] =

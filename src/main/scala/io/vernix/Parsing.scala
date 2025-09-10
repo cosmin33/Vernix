@@ -34,7 +34,7 @@ object Parsing {
 			case (left: Program[Int], ops: Seq[(String, Program[Int])]) =>
 				ops.foldLeft(left):
 					case (acc, ("*", r)) => acc * r
-					case (acc, ("/", r)) => ???
+					case (acc, ("/", r)) => acc.quot(r)
 					case (_, (_, _)) => throw new Exception("unreachable")
 
 		def addSub[$: P]: P[Program[Int]] =
@@ -42,7 +42,7 @@ object Parsing {
 				case (left: Program[Int], ops: Seq[(String, Program[Int])]) =>
 					ops.foldLeft(left):
 						case (acc, ("+", r)) => acc + r
-						case (acc, ("-", r)) => ???
+						case (acc, ("-", r)) => acc - r
 						case (_, (_, _)) => throw new Exception("unreachable")
 
 		def program[$: P]: P[Program[Int]] = P(addSub ~ End)

@@ -15,6 +15,10 @@ trait Expr[A]:
 		def apply[F[_]: Ops]: F[A] = Ops[F].mul(self[F], that[F])
 	def /(that: Expr[A])(using Type[A], Fractional[A]): Expr[A] = new Expr[A]:
 		def apply[F[_]: Ops]: F[A] = Ops[F].div(self[F], that[F])
+	def quot(that: Expr[A])(using Type[A], Integral[A]): Expr[A] = new Expr[A]:
+		def apply[F[_]: Ops]: F[A] = Ops[F].quot(self[F], that[F])
+	def %(that: Expr[A])(using Type[A], Integral[A]): Expr[A] = new Expr[A]:
+		def apply[F[_]: Ops]: F[A] = Ops[F].mod(self[F], that[F])
 	def neg(using Type[A], Numeric[A]): Expr[A] = new Expr[A]:
 		def apply[F[_]: Ops]: F[A] = Ops[F].neg(self[F])
 	def abs(using Type[A], Numeric[A]): Expr[A] = new Expr[A]:
