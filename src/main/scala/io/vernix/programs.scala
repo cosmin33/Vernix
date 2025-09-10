@@ -35,6 +35,16 @@ trait Program[A]:
 		def apply[F[_]: Statements]: F[Tuple.Append[T, A]] = Statements[F].rightEntuple(t[F], self[F])
 	def *>[B](that: Program[B]): Program[B] = new Program[B]:
 		def apply[F[_]: Statements]: F[B] = Statements[F].*>(self[F], that[F])
+	def &&(that: Program[Boolean])(using e: A =:= Boolean): Program[Boolean] = new Program[Boolean]:
+		def apply[F[_]: Statements]: F[Boolean] = Statements[F].and(e.substituteCo(self[F]), that[F])
+	def ||(that: Program[Boolean])(using e: A =:= Boolean): Program[Boolean] = new Program[Boolean]:
+		def apply[F[_]: Statements]: F[Boolean] = Statements[F].or(e.substituteCo(self[F]), that[F])
+	def unary_!(using e: A =:= Boolean): Program[Boolean] = new Program[Boolean]:
+		def apply[F[_]: Statements]: F[Boolean] = Statements[F].not(e.substituteCo(self[F]))
+	def ===(that: Program[A])(using Type[A]): Program[Boolean] = new Program[Boolean]:
+		def apply[F[_]: Statements]: F[Boolean] = Statements[F].equals(self[F], that[F])
+	def !==(that: Program[A])(using Type[A]): Program[Boolean] = new Program[Boolean]:
+		def apply[F[_]: Statements]: F[Boolean] = Statements[F].notEquals(self[F], that[F])
 	def compile: Try[Expr[A]] =
 		Try(self[[a] =>> State[OpContext, Expr[a]]](using Statements.stateStatements).runA(OpContext.empty).value)
 object Program:

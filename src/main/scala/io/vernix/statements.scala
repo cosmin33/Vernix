@@ -79,6 +79,16 @@ object Statements:
 				State(ctx => ctx -> Expr.doWhile(condition.runA(ctx).value)(action.runA(ctx).value))
 			def ifElse[A](cond: CtxState[Expr[Boolean]])(ifTrue: CtxState[Expr[A]], ifFalse: CtxState[Expr[A]]): CtxState[Expr[A]] =
 				State(ctx => ctx -> cond.runA(ctx).value.ifElse(ifTrue.runA(ctx).value, ifFalse.runA(ctx).value))
+			def and(l: CtxState[Expr[Boolean]], r: CtxState[Expr[Boolean]]): CtxState[Expr[Boolean]] =
+				State(ctx => (ctx, l.runA(ctx).value && r.runA(ctx).value))
+			def or(l: CtxState[Expr[Boolean]], r: CtxState[Expr[Boolean]]): CtxState[Expr[Boolean]] =
+				State(ctx => (ctx, l.runA(ctx).value || r.runA(ctx).value))
+			def not(a: CtxState[Expr[Boolean]]): CtxState[Expr[Boolean]] =
+				State(ctx => (ctx, !a.runA(ctx).value))
+			def equals[A: Type](l: CtxState[Expr[A]], r: CtxState[Expr[A]]): CtxState[Expr[Boolean]] =
+				State(ctx => (ctx, l.runA(ctx).value === r.runA(ctx).value))
+			def notEquals[A: Type](l: CtxState[Expr[A]], r: CtxState[Expr[A]]): CtxState[Expr[Boolean]] =
+				State(ctx => (ctx, l.runA(ctx).value !== r.runA(ctx).value))
 			def leftEntuple[A, T <: NonEmptyTuple](a: CtxState[Expr[A]], t: CtxState[Expr[T]]): CtxState[Expr[A *: T]] =
 				State(ctx => ctx -> a.runA(ctx).value.leftEntuple(t.runA(ctx).value))
 			def rightEntuple[T <: NonEmptyTuple, A](t: CtxState[Expr[T]], a: CtxState[Expr[A]]): CtxState[Expr[Tuple.Append[T, A]]] =
