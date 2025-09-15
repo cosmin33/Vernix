@@ -25,6 +25,10 @@ trait Ops[F[_]]:
 	def not(a: F[Boolean]): F[Boolean]
 	def equals[A: Type](l: F[A], r: F[A]): F[Boolean]
 	def notEquals[A: Type](l: F[A], r: F[A]): F[Boolean]
+	def <[A: {Type, Ordering}](l: F[A], r: F[A]): F[Boolean]
+	def <=[A: {Type, Ordering}](l: F[A], r: F[A]): F[Boolean]
+	def >[A: {Type, Ordering}](l: F[A], r: F[A]): F[Boolean]
+	def >=[A: {Type, Ordering}](l: F[A], r: F[A]): F[Boolean]
 	def leftEntuple[A, T <: NonEmptyTuple](a: F[A], t: F[T]): F[A *: T]
 	def rightEntuple[T <: NonEmptyTuple, A](t: F[T], a: F[A]): F[Tuple.Append[T, A]]
 	//def size[L[x] <: IterableOnce[x], A](fa:F[L[A]]): F[Int]
@@ -64,6 +68,10 @@ object Ops:
 			def not(a: Task[Boolean]): Task[Boolean] = a.map(!_)
 			def equals[A: Type](l: Task[A], r: Task[A]): Task[Boolean] = l.zipWith(r)(_ == _)
 			def notEquals[A: Type](l: Task[A], r: Task[A]): Task[Boolean] = l.zipWith(r)(_ != _)
+			def <[A: {Type, Ordering}](l: Task[A], r: Task[A]): Task[Boolean] = l.zipWith(r)(Ordering[A].lt)
+			def <=[A: {Type, Ordering}](l: Task[A], r: Task[A]): Task[Boolean] = l.zipWith(r)(Ordering[A].lteq)
+			def >[A: {Type, Ordering}](l: Task[A], r: Task[A]): Task[Boolean] = l.zipWith(r)(Ordering[A].gt)
+			def >=[A: {Type, Ordering}](l: Task[A], r: Task[A]): Task[Boolean] = l.zipWith(r)(Ordering[A].gteq)
 			def leftEntuple[A, T <: NonEmptyTuple](a: Task[A], t: Task[T]): Task[A *: T] = a.zipWith(t)(_ *: _)
 			def rightEntuple[T <: NonEmptyTuple, A](t: Task[T], a: Task[A]): Task[Tuple.Append[T, A]] = t.zipWith(a)(_ :* _)
 			def *>[A, B](l: Task[A], r: Task[B]): Task[B] = l *> r
@@ -99,6 +107,10 @@ object Ops:
 			def not(a: Try[Boolean]): Try[Boolean] = a.map(!_)
 			def equals[A: Type](l: Try[A], r: Try[A]): Try[Boolean] = l.flatMap(a => r.map(b => a == b))
 			def notEquals[A: Type](l: Try[A], r: Try[A]): Try[Boolean] = l.flatMap(a => r.map(b => a != b))
+			def <[A: {Type, Ordering}](l: Try[A], r: Try[A]): Try[Boolean] = l.flatMap(a => r.map(b => Ordering[A].lt(a, b)))
+			def <=[A: {Type, Ordering}](l: Try[A], r: Try[A]): Try[Boolean] = l.flatMap(a => r.map(b => Ordering[A].lteq(a, b)))
+			def >[A: {Type, Ordering}](l: Try[A], r: Try[A]): Try[Boolean] = l.flatMap(a => r.map(b => Ordering[A].gt(a, b)))
+			def >=[A: {Type, Ordering}](l: Try[A], r: Try[A]): Try[Boolean] = l.flatMap(a => r.map(b => Ordering[A].gteq(a, b)))
 			def leftEntuple[A, T <: NonEmptyTuple](a: Try[A], t: Try[T]): Try[A *: T] = a.flatMap(a => t.map(t => a *: t))
 			def rightEntuple[T <: NonEmptyTuple, A](t: Try[T], a: Try[A]): Try[Tuple.Append[T, A]] = 
 				t.flatMap(t => a.map(a => t :* a))
@@ -126,6 +138,10 @@ object Ops:
 		def not(a: String): String = s"(!$a)"
 		def equals[A: Type](l: String, r: String): String = s"($l == $r)"
 		def notEquals[A: Type](l: String, r: String): String = s"($l != $r)"
+		def <[A: {Type, Ordering}](l: String, r: String): String = s"($l < $r)"
+		def <=[A: {Type, Ordering}](l: String, r: String): String = s"($l <= $r)"
+		def >[A: {Type, Ordering}](l: String, r: String): String = s"($l > $r)"
+		def >=[A: {Type, Ordering}](l: String, r: String): String = s"($l >= $r)"
 		def leftEntuple[A, T <: NonEmptyTuple](a: String, t: String): String = s"($a, $t)"
 		def rightEntuple[T <: NonEmptyTuple, A](t: String, a: String): String = s"($t, $a)"
 		def *>[A, B](l: String, r: String): String = s"$l\n$r"
@@ -167,6 +183,10 @@ object Ops:
 		def not(a: Type[Boolean]): Type[Boolean] = Type[Boolean]
 		def equals[A: Type](l: Type[A], r: Type[A]): Type[Boolean] = Type[Boolean]
 		def notEquals[A: Type](l: Type[A], r: Type[A]): Type[Boolean] = Type[Boolean]
+		def <[A: {Type, Ordering}](l: Type[A], r: Type[A]): Type[Boolean] = Type[Boolean]
+		def <=[A: {Type, Ordering}](l: Type[A], r: Type[A]): Type[Boolean] = Type[Boolean]
+		def >[A: {Type, Ordering}](l: Type[A], r: Type[A]): Type[Boolean] = Type[Boolean]
+		def >=[A: {Type, Ordering}](l: Type[A], r: Type[A]): Type[Boolean] = Type[Boolean]
 		def leftEntuple[A, T <: NonEmptyTuple](a: Type[A], t: Type[T]): Type[A *: T] =
 			Type.TupLeftType[A, T](using a, t)
 		def rightEntuple[T <: NonEmptyTuple, A](t: Type[T], a: Type[A]): Type[Tuple.Append[T, A]] =
@@ -240,6 +260,14 @@ object Ops:
 			l.flatMap(l => r.map(r => s"($l == $r)"))
 		def notEquals[A: Type](l: IdentState[String], r: IdentState[String]): IdentState[String] =
 			l.flatMap(l => r.map(r => s"($l != $r)"))
+		def <[A: {Type, Ordering}](l: IdentState[String], r: IdentState[String]): IdentState[String] =
+			l.flatMap(l => r.map(r => s"($l < $r)"))
+		def <=[A: {Type, Ordering}](l: IdentState[String], r: IdentState[String]): IdentState[String] =
+			l.flatMap(l => r.map(r => s"($l <= $r)"))
+		def >[A: {Type, Ordering}](l: IdentState[String], r: IdentState[String]): IdentState[String] =
+			l.flatMap(l => r.map(r => s"($l > $r)"))
+		def >=[A: {Type, Ordering}](l: IdentState[String], r: IdentState[String]): IdentState[String] =
+			l.flatMap(l => r.map(r => s"($l >= $r)"))
 		def leftEntuple[A, T <: NonEmptyTuple](a: IdentState[String], t: IdentState[String]): IdentState[String] =
 			State(id => id -> s"(${a.runA(id).value}, ${t.runA(id).value})")
 		def rightEntuple[T <: NonEmptyTuple, A](t: IdentState[String], a: IdentState[String]): IdentState[String] =

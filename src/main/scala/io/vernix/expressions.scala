@@ -39,6 +39,14 @@ trait Expr[A]:
 		def apply[F[_]: Ops]: F[Boolean] = Ops[F].equals(self[F], that[F])
 	def !==(that: Expr[A])(using Type[A]): Expr[Boolean] = new Expr[Boolean]:
 		def apply[F[_]: Ops]: F[Boolean] = Ops[F].notEquals(self[F], that[F])
+	def <(that: Expr[A])(using Type[A], Ordering[A]): Expr[Boolean] = new Expr[Boolean]:
+		def apply[F[_]: Ops]: F[Boolean] = Ops[F].`<`(self[F], that[F])
+	def <=(that: Expr[A])(using Type[A], Ordering[A]): Expr[Boolean] = new Expr[Boolean]:
+		def apply[F[_]: Ops]: F[Boolean] = Ops[F].`<=`(self[F], that[F])
+	def >(that: Expr[A])(using Type[A], Ordering[A]): Expr[Boolean] = new Expr[Boolean]:
+		def apply[F[_]: Ops]: F[Boolean] = Ops[F].`>`(self[F], that[F])
+	def >=(that: Expr[A])(using Type[A], Ordering[A]): Expr[Boolean] = new Expr[Boolean]:
+		def apply[F[_]: Ops]: F[Boolean] = Ops[F].`>=`(self[F], that[F])
 	def leftEntuple[T <: NonEmptyTuple](t: Expr[T]): Expr[A *: T] = new Expr[A *: T]:
 		def apply[F[_]: Ops]: F[A *: T] = Ops[F].leftEntuple(self[F], t[F])
 	def rightEntuple[T <: NonEmptyTuple](t: Expr[T]): Expr[Tuple.Append[T, A]] = new Expr[Tuple.Append[T, A]]:

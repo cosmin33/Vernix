@@ -45,6 +45,14 @@ trait Program[A]:
 		def apply[F[_]: Statements]: F[Boolean] = Statements[F].equals(self[F], that[F])
 	def !==(that: Program[A])(using Type[A]): Program[Boolean] = new Program[Boolean]:
 		def apply[F[_]: Statements]: F[Boolean] = Statements[F].notEquals(self[F], that[F])
+	def <(that: Program[A])(using Type[A], Ordering[A]): Program[Boolean] = new Program[Boolean]:
+		def apply[F[_]: Statements]: F[Boolean] = Statements[F].`<`(self[F], that[F])
+	def <=(that: Program[A])(using Type[A], Ordering[A]): Program[Boolean] = new Program[Boolean]:
+		def apply[F[_]: Statements]: F[Boolean] = Statements[F].`<=`(self[F], that[F])
+	def >(that: Program[A])(using Type[A], Ordering[A]): Program[Boolean] = new Program[Boolean]:
+		def apply[F[_]: Statements]: F[Boolean] = Statements[F].`>`(self[F], that[F])
+	def >=(that: Program[A])(using Type[A], Ordering[A]): Program[Boolean] = new Program[Boolean]:
+		def apply[F[_]: Statements]: F[Boolean] = Statements[F].`>=`(self[F], that[F])
 	def compile: Try[Expr[A]] =
 		Try(self[[a] =>> State[OpContext, Expr[a]]](using Statements.stateStatements).runA(OpContext.empty).value)
 object Program:
