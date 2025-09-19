@@ -54,15 +54,15 @@ trait Expr[A]:
 	def memoize: Expr[A] = new Expr[A]:
 		@volatile var last: Any = uninitialized
 		@volatile var lastType: String = ""
-		def apply[F[_]: Ops]: F[A] = synchronized {
-			if (lastType == Ops[F].typeK.name)
-				last.asInstanceOf[F[A]]
-			else
-				val r = self[F]
-				last = r
-				lastType = Ops[F].typeK.name
-				r
-		}
+		def apply[F[_]: Ops]: F[A] =
+			synchronized:
+				if (lastType == Ops[F].typeK.name)
+					last.asInstanceOf[F[A]]
+				else
+					val r = self[F]
+					last = r
+					lastType = Ops[F].typeK.name
+					r
 	def prg: Program[A] = new Program[A]:
 		def apply[F[_]: Statements]: F[A] = self[F]
 object Expr:
@@ -71,9 +71,3 @@ object Expr:
 	def doWhile[A](condition: Expr[Boolean])(action: Expr[A]): Expr[Unit] = new Expr[Unit]:
 		def apply[F[_]: Ops]: F[Unit] = Ops[F].doWhile(condition[F])(action[F])
 end Expr
-
-trait Blah1[+A]:
-	def apply[F[+_]](using o: Ops[F]): F[A]
-
-trait Blah2[+A] extends Blah1[A]:
-	def apply[F[+_]](using o: Statements[F]): F[A]

@@ -1,6 +1,6 @@
 package io.vernix
 
-case class OpContext(vars: Map[String, (String, Any)], funs: Map[String, (String, Any)]) {
+case class OpContext(vars: Map[String, (String, Any)], funs: Map[String, (String, Any)]):
 	def getVariable[A: Type](name: String): OpContext.SearchResult[A] =
 		vars.get(name) match
 			case Some((t, v)) if t == Type[A].name => OpContext.SearchResult.Found(v.asInstanceOf[A])
@@ -15,7 +15,6 @@ case class OpContext(vars: Map[String, (String, Any)], funs: Map[String, (String
 		copy(vars = vars.updated(name, Type[A].name -> value))
 	def addFunction[A: Type, B: Type](name: String, fn: A => B): OpContext =
 		copy(funs = funs.updated(name, Type[A => B].name -> fn))
-}
 object OpContext:
 	def empty: OpContext = OpContext(Map(), Map())
 	enum SearchResult[+A]:

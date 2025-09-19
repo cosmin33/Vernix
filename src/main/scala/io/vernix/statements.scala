@@ -15,7 +15,7 @@ object Statements:
 
 	type CtxState[A] = State[OpContext, A]
 	
-	private[vernix] val stateStatements: Statements[[a] =>> CtxState[Expr[a]]] =
+	given stateStatements: Statements[[a] =>> CtxState[Expr[a]]] =
 		new Statements[[a] =>> CtxState[Expr[a]]]:
 			def typeK: TypeK[[a] =>> CtxState[Expr[a]]] = new TypeK[[a] =>> CtxState[Expr[a]]]:
 				def name: String = "CtxState[Expr[_]]"
@@ -27,7 +27,7 @@ object Statements:
 							throw new NoSuchElementException(s"Variable $name not found")
 						case OpContext.SearchResult.TypeMismatch(expected, found) =>
 							throw new ClassCastException(s"Variable $name is of type $found, expected $expected")
-					(ctx, v)
+					ctx -> v
 				}
 			def len(fa: CtxState[Expr[String]]): CtxState[Expr[Int]] = fa.map(e => e.len)
 			def let[A: Type](name: String, value: CtxState[Expr[A]]): CtxState[Expr[A]] =
@@ -35,7 +35,7 @@ object Statements:
 					val (newCtx, v) = value.run(ctx).value
 					val v1 = v.memoize
 					val updatedCtx = newCtx.addVariable(name, v1)
-					(updatedCtx, v1)
+					updatedCtx -> v1
 				}
 			def nest[A](fa: CtxState[Expr[A]]): CtxState[Expr[A]] =
 				State(ctx => ctx -> fa.runA(ctx).value)
@@ -89,11 +89,11 @@ object Statements:
 				State(ctx => (ctx, l.runA(ctx).value === r.runA(ctx).value))
 			def notEquals[A: Type](l: CtxState[Expr[A]], r: CtxState[Expr[A]]): CtxState[Expr[Boolean]] =
 				State(ctx => (ctx, l.runA(ctx).value !== r.runA(ctx).value))
-			def <[A: {Type, Ordering}](l: CtxState[Expr[A]], r: CtxState[Expr[A]]): CtxState[Expr[Boolean]] =
+			def < [A: {Type, Ordering}](l: CtxState[Expr[A]], r: CtxState[Expr[A]]): CtxState[Expr[Boolean]] =
 				State(ctx => (ctx, l.runA(ctx).value < r.runA(ctx).value))
 			def <=[A: {Type, Ordering}](l: CtxState[Expr[A]], r: CtxState[Expr[A]]): CtxState[Expr[Boolean]] =
 				State(ctx => (ctx, l.runA(ctx).value <= r.runA(ctx).value))
-			def >[A: {Type, Ordering}](l: CtxState[Expr[A]], r: CtxState[Expr[A]]): CtxState[Expr[Boolean]] =
+			def > [A: {Type, Ordering}](l: CtxState[Expr[A]], r: CtxState[Expr[A]]): CtxState[Expr[Boolean]] =
 				State(ctx => (ctx, l.runA(ctx).value > r.runA(ctx).value))
 			def >=[A: {Type, Ordering}](l: CtxState[Expr[A]], r: CtxState[Expr[A]]): CtxState[Expr[Boolean]] =
 				State(ctx => (ctx, l.runA(ctx).value >= r.runA(ctx).value))

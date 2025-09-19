@@ -1,5 +1,6 @@
 package io.vernix
 
+import cats.Eval
 import cats.data.State
 
 import scala.util.Try
@@ -53,8 +54,9 @@ trait Program[A]:
 		def apply[F[_]: Statements]: F[Boolean] = Statements[F].`>`(self[F], that[F])
 	def >=(that: Program[A])(using Type[A], Ordering[A]): Program[Boolean] = new Program[Boolean]:
 		def apply[F[_]: Statements]: F[Boolean] = Statements[F].`>=`(self[F], that[F])
-	def compile: Try[Expr[A]] =
-		Try(self[[a] =>> State[OpContext, Expr[a]]](using Statements.stateStatements).runA(OpContext.empty).value)
+	
+	def compilation: Eval[Expr[A]] = self[[a] =>> State[OpContext, Expr[a]]].runA(OpContext.empty)
+	def compile: Try[Expr[A]] = Try(compilation.value)
 object Program:
 	def value[A: Type](v: A): Program[A] = new Program[A]:
 		def apply[F[_]: Statements]: F[A] = Statements[F].value(v)

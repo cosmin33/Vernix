@@ -24,7 +24,7 @@ object Expr01 extends ZIOAppDefault {
 					+ funCall[Int, Int]("triple", value(1))
 					//					+ variable[Int]("i")
 					)
-		val ce: Task[Expr[_]] = ZIO.fromTry(e.compile)
+		val ce: Task[Expr[?]] = ZIO.fromTry(e.compile)
 //		val ce: Task[Expr[Int]] = ZIO.fromTry(compile(OpContext.empty)(e))
 		for {
 			_ <- printLine("===============================")
@@ -76,6 +76,7 @@ object Expr01 extends ZIOAppDefault {
 			r <- e1.apply[Task]
 			_ <- printLine(s"result: $r")
 			_ <- printLine("===============================")
+
 		} yield ()
 	}
 
