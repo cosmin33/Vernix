@@ -30,6 +30,7 @@ object Statements:
 					ctx -> v
 				}
 			def len(fa: CtxState[Expr[String]]): CtxState[Expr[Int]] = fa.map(e => e.len)
+			def toDouble(fa: CtxState[Expr[Int]]): CtxState[Expr[Double]] = fa.map(e => e.toDouble)
 			def let[A: Type](name: String, value: CtxState[Expr[A]]): CtxState[Expr[A]] =
 				State { ctx =>
 					val (newCtx, v) = value.run(ctx).value

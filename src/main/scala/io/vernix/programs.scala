@@ -26,6 +26,8 @@ trait Program[A]:
 		def apply[F[_]: Statements]: F[A] = Statements[F].abs(self[F])
 	def ++(that: Program[String])(using e: A =:= String): Program[String] = new Program[String]:
 		def apply[F[_]: Statements]: F[String] = Statements[F].concat(e.substituteCo(self[F]), that[F])
+	def toDouble(using e: A =:= Int): Program[Double] = new Program[Double]:
+		def apply[F[_]: Statements]: F[Double] = Statements[F].toDouble(e.substituteCo(self[F]))
 	def nest: Program[A] = new Program[A]:
 		def apply[F[_]: Statements]: F[A] = Statements[F].nest(self[F])
 	def repeatUntil(condition: Program[Boolean]): Program[A] = new Program[A]:

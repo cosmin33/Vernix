@@ -7,6 +7,8 @@ trait Expr[A]:
 	def apply[F[_]: Ops]: F[A]
 	def len(using e: A =:= String): Expr[Int] = new Expr[Int]:
 		def apply[F[_]: Ops]: F[Int] = Ops[F].len(e.substituteCo(self[F]))
+	def toDouble(using e: A =:= Int): Expr[Double] = new Expr[Double]:
+		def apply[F[_]: Ops]: F[Double] = Ops[F].toDouble(e.substituteCo(self[F]))
 	def +(that: Expr[A])(using Type[A], Numeric[A]): Expr[A] = new Expr[A]:
 		def apply[F[_]: Ops]: F[A] = Ops[F].add(self[F], that[F])
 	def -(that: Expr[A])(using Type[A], Numeric[A]): Expr[A] = new Expr[A]:
