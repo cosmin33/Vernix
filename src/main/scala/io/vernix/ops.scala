@@ -18,6 +18,7 @@ trait Ops[F[_]]:
 	def abs[N: {Type, Numeric}](a: F[N]): F[N]
 	def concat(l: F[String], r: F[String]): F[String]
 	def len(fa:F[String]): F[Int]
+	def toDouble(fa: F[Int]): F[Double]
 	def repeatUntil[A](action: F[A])(condition: F[Boolean]): F[A]
 	def doWhile[A](condition: F[Boolean])(action: F[A]): F[Unit]
 	def ifElse[A](cond: F[Boolean])(ifTrue: F[A], ifFalse: F[A]): F[A]
@@ -52,6 +53,7 @@ object Ops:
 			def neg[N: {Type, Numeric}](a: Task[N]): Task[N] = a.map(Numeric[N].negate)
 			def abs[N: {Type, Numeric}](a: Task[N]): Task[N] = a.map(Numeric[N].abs)
 			def len(fa: Task[String]): Task[Int] = fa.map(_.length)
+			def toDouble(fa: Task[Int]): Task[Double] = fa.map(_.toDouble)
 			def concat(l: Task[String], r: Task[String]): Task[String] = l.zipWith(r)(_ + _)
 			def repeatUntil[A](action: Task[A])(condition: Task[Boolean]): Task[A] =
 				action.flatMap(a => condition.flatMap(
@@ -89,6 +91,7 @@ object Ops:
 			def neg[N: {Type, Numeric}](a: Try[N]): Try[N] = a.map(Numeric[N].negate)
 			def abs[N: {Type, Numeric}](a: Try[N]): Try[N] = a.map(Numeric[N].abs)
 			def len(fa: Try[String]): Try[Int] = fa.map(_.length)
+			def toDouble(fa: Try[Int]): Try[Double] = fa.map(_.toDouble)
 			def concat(l: Try[String], r: Try[String]): Try[String] = l.flatMap(a => r.map(b => a + b))
 			def repeatUntil[A](action: Try[A])(condition: Try[Boolean]): Try[A] =
 				action >>= (a => condition >>= (if _ then Try(a) else repeatUntil(action)(condition)))
@@ -123,6 +126,7 @@ object Ops:
 		def neg[N: {Type, Numeric}](a: String): String = s"(-$a)"
 		def abs[N: {Type, Numeric}](a: String): String = s"abs($a)"
 		def len(fa: String): String = s"$fa.len"
+		def toDouble(fa: String): String = s"$fa.toDouble"
 		def concat(l: String, r: String): String = s"($l ++ $r)"
 		def repeatUntil[A](action: String)(condition: String): String = s"repeat { $action } until { $condition }"
 		def doWhile[A](condition: String)(action: String): String = s"do { $action } while { $condition }"
@@ -168,6 +172,7 @@ object Ops:
 		def neg[N: {Type, Numeric}](a: Type[N]): Type[N] = Type[N]
 		def abs[N: {Type, Numeric}](a: Type[N]): Type[N] = Type[N]
 		def len(fa: Type[String]): Type[Int] = Type[Int]
+		def toDouble(fa: Type[Int]): Type[Double] = Type[Double]
 		def concat(l: Type[String], r: Type[String]): Type[String] = Type[String]
 		def repeatUntil[A](action: Type[A])(condition: Type[Boolean]): Type[A] = action
 		def doWhile[A](condition: Type[Boolean])(action: Type[A]): Type[Unit] = Type[Unit]
@@ -223,6 +228,8 @@ object Ops:
 			a.map(a => s"abs($a)")
 		def len(fa: IdentState[String]): IdentState[String] =
 			fa.map(v => s"$v.len")
+		def toDouble(fa: IdentState[Int]): IdentState[Double] =
+			fa.map(v => s"$v.toDouble")
 		def concat(l: IdentState[String], r: IdentState[String]): IdentState[String] =
 			l.flatMap(l => r.map(r => s"($l ++ $r)"))
 		def repeatUntil[A](action: IdentState[String])(condition: IdentState[String]): IdentState[String] =
