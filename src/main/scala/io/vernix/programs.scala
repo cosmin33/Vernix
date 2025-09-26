@@ -75,3 +75,22 @@ object Program:
 	def ifElse[A](cond: Program[Boolean])(ifTrue: Program[A], ifFalse: Program[A]): Program[A] = new Program[A]:
 		def apply[F[_]: Statements]: F[A] = Statements[F].ifElse(cond[F])(ifTrue[F], ifFalse[F])
 end Program
+
+trait Prog:
+	type T
+	def `type`: Type[T]
+	def program: Program[T]
+	def get[A](using eq: T =:= A): Program[A] = eq.substituteCo(program)
+	def unsafe[A: Type]: Program[A] =
+		if (Type[A].name == `type`.name) program.asInstanceOf[Program[A]]
+		else throw new ClassCastException(s"Program is of type ${`type`.name}, not ${Type[A].name}")
+object Prog:
+	type Aux[A] = Prog { type T = A }
+	def apply[A: Type](p: Program[A]): Prog.Aux[A] = new Prog:
+		type T = A
+		val `type`: Type[A] = summon
+		val program: Program[A] = p
+	extension[T] (p: Program[T])
+		def prog(using Type[T]): Prog.Aux[T] = Prog(p)
+
+end Prog
