@@ -70,8 +70,10 @@ object Program:
 		def apply[F[_]: Statements]: F[Unit] = Statements[F].funDef[A, B](name, param, body[F])
 	def funCall[A: Type, B: Type](name: String, param: Program[A]): Program[B] = new Program[B]:
 		def apply[F[_]: Statements]: F[B] = Statements[F].funCall(name, param[F])
-	def doWhile[A](condition: Program[Boolean])(action: Program[A]): Program[Unit] = new Program[Unit]:
-		def apply[F[_]: Statements]: F[Unit] = Statements[F].doWhile(condition[F])(action[F])
+	def repeatUntil[A](action: Program[A])(condition: Program[Boolean]): Program[A] = new Program[A]:
+		def apply[F[_]: Statements]: F[A] = Statements[F].repeatUntil(action[F])(condition[F])
+	def whileDo[A](condition: Program[Boolean])(action: Program[A]): Program[Unit] = new Program[Unit]:
+		def apply[F[_]: Statements]: F[Unit] = Statements[F].whileDo(condition[F])(action[F])
 	def ifElse[A](cond: Program[Boolean])(ifTrue: Program[A], ifFalse: Program[A]): Program[A] = new Program[A]:
 		def apply[F[_]: Statements]: F[A] = Statements[F].ifElse(cond[F])(ifTrue[F], ifFalse[F])
 end Program

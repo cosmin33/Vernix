@@ -20,7 +20,7 @@ trait Ops[F[_]]:
 	def len(fa:F[String]): F[Int]
 	def toDouble(fa: F[Int]): F[Double]
 	def repeatUntil[A](action: F[A])(condition: F[Boolean]): F[A]
-	def doWhile[A](condition: F[Boolean])(action: F[A]): F[Unit]
+	def whileDo[A](condition: F[Boolean])(action: F[A]): F[Unit]
 	def ifElse[A](cond: F[Boolean])(ifTrue: F[A], ifFalse: F[A]): F[A]
 	def and(l: F[Boolean], r: F[Boolean]): F[Boolean]
 	def or(l: F[Boolean], r: F[Boolean]): F[Boolean]
@@ -60,8 +60,8 @@ object Ops:
 					if _ then ZIO.succeed(a)
 					else repeatUntil(action)(condition)
 				))
-			def doWhile[A](condition: Task[Boolean])(action: Task[A]): Task[Unit] =
-				condition.flatMap(ZIO.unlessDiscard(_)(action *> doWhile(condition)(action)))
+			def whileDo[A](condition: Task[Boolean])(action: Task[A]): Task[Unit] =
+				condition.flatMap(ZIO.unlessDiscard(_)(action *> whileDo(condition)(action)))
 			def ifElse[A](cond: Task[Boolean])(ifTrue: Task[A], ifFalse: Task[A]): Task[A] =
 				cond.flatMap(if _ then ifTrue else ifFalse)
 			def and(l: Task[Boolean], r: Task[Boolean]): Task[Boolean] = l.zipWith(r)(_ && _)
@@ -95,8 +95,8 @@ object Ops:
 			def concat(l: Try[String], r: Try[String]): Try[String] = l.flatMap(a => r.map(b => a + b))
 			def repeatUntil[A](action: Try[A])(condition: Try[Boolean]): Try[A] =
 				action >>= (a => condition >>= (if _ then Try(a) else repeatUntil(action)(condition)))
-			def doWhile[A](condition: Try[Boolean])(action: Try[A]): Try[Unit] =
-				condition.flatMap(if _ then Try(()) else action.flatMap(_ => doWhile(condition)(action)))
+			def whileDo[A](condition: Try[Boolean])(action: Try[A]): Try[Unit] =
+				condition.flatMap(if _ then Try(()) else action.flatMap(_ => whileDo(condition)(action)))
 			def ifElse[A](cond: Try[Boolean])(ifTrue: Try[A], ifFalse: Try[A]): Try[A] =
 				cond.flatMap(if _ then ifTrue else ifFalse)
 			def and(l: Try[Boolean], r: Try[Boolean]): Try[Boolean] = l.flatMap(a => r.map(b => a && b))
@@ -129,7 +129,7 @@ object Ops:
 		def toDouble(fa: String): String = s"$fa.toDouble"
 		def concat(l: String, r: String): String = s"($l ++ $r)"
 		def repeatUntil[A](action: String)(condition: String): String = s"repeat { $action } until { $condition }"
-		def doWhile[A](condition: String)(action: String): String = s"do { $action } while { $condition }"
+		def whileDo[A](condition: String)(action: String): String = s"do { $action } while { $condition }"
 		def ifElse[A](cond: String)(ifTrue: String, ifFalse: String): String = s"if ($cond) { $ifTrue } else { $ifFalse }"
 		def and(l: String, r: String): String = s"($l && $r)"
 		def or(l: String, r: String): String = s"($l || $r)"
@@ -144,7 +144,7 @@ object Ops:
 		def rightEntuple[T <: NonEmptyTuple, A](t: String, a: String): String = s"($t, $a)"
 		def *>[A, B](l: String, r: String): String = s"$l\n$r"
 		def variable[A: Type](name: String): String = s"var[${Type[A].name}]($name)"
-		def let[A: Type](name: String, value: String): String = s"let[${Type[A].name}] $name = $value"
+		def let[A: Type](name: String, value: String): String = s"let $name: ${Type[A].name} = $value"
 		def nest[A](fa: String): String = s"{$fa}"
 		def funDef[A: Type, B: Type](name: String, param: String, body: String): String =
 			s"def $name(${Type[A].name} $param): ${Type[B].name} = $body"
@@ -175,7 +175,7 @@ object Ops:
 		def toDouble(fa: Type[Int]): Type[Double] = Type[Double]
 		def concat(l: Type[String], r: Type[String]): Type[String] = Type[String]
 		def repeatUntil[A](action: Type[A])(condition: Type[Boolean]): Type[A] = action
-		def doWhile[A](condition: Type[Boolean])(action: Type[A]): Type[Unit] = Type[Unit]
+		def whileDo[A](condition: Type[Boolean])(action: Type[A]): Type[Unit] = Type[Unit]
 		def ifElse[A](cond: Type[Boolean])(ifTrue: Type[A], ifFalse: Type[A]): Type[A] = ifTrue
 		def and(l: Type[Boolean], r: Type[Boolean]): Type[Boolean] = Type[Boolean]
 		def or(l: Type[Boolean], r: Type[Boolean]): Type[Boolean] = Type[Boolean]
@@ -238,7 +238,7 @@ object Ops:
 				val cond = condition.runA(i + 2).value
 				i -> ("repeat {" + "\n" + act.ident(i + 2) + "} until {".ident(i + 2) + "\n" + cond.ident(i + 2) + "}".ident(i))
 			}
-		def doWhile[A](condition: IdentState[String])(action: IdentState[String]): IdentState[String] =
+		def whileDo[A](condition: IdentState[String])(action: IdentState[String]): IdentState[String] =
 			State { i =>
 				val act = action.runA(i + 2).value
 				val cond = condition.runA(i + 2).value

@@ -60,106 +60,7 @@ object Parsing {
 		def boolean[$: P]: P[Prog.Aux[Boolean]] = P(`true` | `false`)
 		def variable[$: P, T](using Type[T]): P[Prog.Aux[T]] = P(validName).map(name => Program.variable[T](name).prog)
 
-		def op_+(l: Prog, r: Prog): Prog =
-			(l.`type`, r.`type`) match
-				case (Type.IntType, Type.IntType)       => (l.unsafe[Int] + r.unsafe[Int]).prog
-				case (Type.DoubleType, Type.DoubleType) => (l.unsafe[Double] + r.unsafe[Double]).prog
-				case (Type.IntType, Type.DoubleType)    => (l.unsafe[Int].toDouble + r.unsafe[Double]).prog
-				case (Type.DoubleType, Type.IntType)    => (l.unsafe[Double] + r.unsafe[Int].toDouble).prog
-				case _ => throw new Exception(s"Cannot add types ${l.`type`.name} and ${r.`type`.name}")
-
-		def op_-(l: Prog, r: Prog): Prog =
-			(l.`type`, r.`type`) match
-				case (Type.IntType, Type.IntType)       => (l.unsafe[Int] - r.unsafe[Int]).prog
-				case (Type.DoubleType, Type.DoubleType) => (l.unsafe[Double] - r.unsafe[Double]).prog
-				case (Type.IntType, Type.DoubleType)    => (l.unsafe[Int].toDouble - r.unsafe[Double]).prog
-				case (Type.DoubleType, Type.IntType)    => (l.unsafe[Double] - r.unsafe[Int].toDouble).prog
-				case _ => throw new Exception(s"Cannot subtract types ${l.`type`.name} and ${r.`type`.name}")
-
-		def op_*(l: Prog, r: Prog): Prog =
-			(l.`type`, r.`type`) match
-				case (Type.IntType, Type.IntType)       => (l.unsafe[Int] * r.unsafe[Int]).prog
-				case (Type.DoubleType, Type.DoubleType) => (l.unsafe[Double] * r.unsafe[Double]).prog
-				case (Type.IntType, Type.DoubleType)    => (l.unsafe[Int].toDouble * r.unsafe[Double]).prog
-				case (Type.DoubleType, Type.IntType)    => (l.unsafe[Double] * r.unsafe[Int].toDouble).prog
-				case _ => throw new Exception(s"Cannot multiply types ${l.`type`.name} and ${r.`type`.name}")
-
-		def op_/(l: Prog, r: Prog): Prog =
-			(l.`type`, r.`type`) match
-				case (Type.IntType, Type.IntType)       => l.unsafe[Int].quot(r.unsafe[Int]).prog
-				case (Type.DoubleType, Type.DoubleType) => (l.unsafe[Double] / r.unsafe[Double]).prog
-				case (Type.IntType, Type.DoubleType)    => (l.unsafe[Int].toDouble / r.unsafe[Double]).prog
-				case (Type.DoubleType, Type.IntType)    => (l.unsafe[Double] / r.unsafe[Int].toDouble).prog
-				case _ => throw new Exception(s"Cannot divide types ${l.`type`.name} and ${r.`type`.name}")
-
-		def op_%(l: Prog, r: Prog): Prog =
-			(l.`type`, r.`type`) match
-				case (Type.IntType, Type.IntType)       => (l.unsafe[Int] % r.unsafe[Int]).prog
-				case _ => throw new Exception(s"Cannot compute remainder for types ${l.`type`.name} and ${r.`type`.name}")
-
-		def op_<(l: Prog, r: Prog): Prog.Aux[Boolean] =
-			(l.`type`, r.`type`) match
-				case (Type.IntType, Type.IntType)       => (l.unsafe[Int] < r.unsafe[Int]).prog
-				case (Type.DoubleType, Type.DoubleType) => (l.unsafe[Double] < r.unsafe[Double]).prog
-				case (Type.IntType, Type.DoubleType)    => (l.unsafe[Int].toDouble < r.unsafe[Double]).prog
-				case (Type.DoubleType, Type.IntType)    => (l.unsafe[Double] < r.unsafe[Int].toDouble).prog
-				case (Type.StringType, Type.StringType) => (l.unsafe[String] < r.unsafe[String]).prog
-				case _ => throw new Exception(s"Cannot compare types ${l.`type`.name} and ${r.`type`.name}")
-
-		def op_<=(l: Prog, r: Prog): Prog.Aux[Boolean] =
-			(l.`type`, r.`type`) match
-				case (Type.IntType, Type.IntType)       => (l.unsafe[Int] <= r.unsafe[Int]).prog
-				case (Type.DoubleType, Type.DoubleType) => (l.unsafe[Double] <= r.unsafe[Double]).prog
-				case (Type.IntType, Type.DoubleType)    => (l.unsafe[Int].toDouble <= r.unsafe[Double]).prog
-				case (Type.DoubleType, Type.IntType)    => (l.unsafe[Double] <= r.unsafe[Int].toDouble).prog
-				case (Type.StringType, Type.StringType) => (l.unsafe[String] <= r.unsafe[String]).prog
-				case _ => throw new Exception(s"Cannot compare types ${l.`type`.name} and ${r.`type`.name}")
-
-		def op_>(l: Prog, r: Prog): Prog.Aux[Boolean] =
-			(l.`type`, r.`type`) match
-				case (Type.IntType, Type.IntType)       => (l.unsafe[Int] > r.unsafe[Int]).prog
-				case (Type.DoubleType, Type.DoubleType) => (l.unsafe[Double] > r.unsafe[Double]).prog
-				case (Type.IntType, Type.DoubleType)    => (l.unsafe[Int].toDouble > r.unsafe[Double]).prog
-				case (Type.DoubleType, Type.IntType)    => (l.unsafe[Double] > r.unsafe[Int].toDouble).prog
-				case (Type.StringType, Type.StringType) => (l.unsafe[String] > r.unsafe[String]).prog
-				case _ => throw new Exception(s"Cannot compare types ${l.`type`.name} and ${r.`type`.name}")
-
-		def op_>=(l: Prog, r: Prog): Prog.Aux[Boolean] =
-			(l.`type`, r.`type`) match
-				case (Type.IntType, Type.IntType)       => (l.unsafe[Int] >= r.unsafe[Int]).prog
-				case (Type.DoubleType, Type.DoubleType) => (l.unsafe[Double] >= r.unsafe[Double]).prog
-				case (Type.IntType, Type.DoubleType)    => (l.unsafe[Int].toDouble >= r.unsafe[Double]).prog
-				case (Type.DoubleType, Type.IntType)    => (l.unsafe[Double] >= r.unsafe[Int].toDouble).prog
-				case (Type.StringType, Type.StringType) => (l.unsafe[String] >= r.unsafe[String]).prog
-				case _ => throw new Exception(s"Cannot compare types ${l.`type`.name} and ${r.`type`.name}")
-
-		def op_===(l: Prog, r: Prog): Prog.Aux[Boolean] =
-			(l.`type`, r.`type`) match
-				case (Type.IntType, Type.DoubleType) => (l.unsafe[Int].toDouble === r.unsafe[Double]).prog
-				case (Type.DoubleType, Type.IntType) => (l.unsafe[Double] === r.unsafe[Int].toDouble).prog
-				case _ if (l.`type`.name == r.`type`.name) =>
-					given Type[l.T] = l.`type`
-					(l.unsafe[l.T] === r.unsafe[l.T]).prog
-				case _ => throw new Exception(s"Cannot compare types ${l.`type`.name} and ${r.`type`.name}")
-
-		def op_!==(l: Prog, r: Prog): Prog.Aux[Boolean] =
-			(l.`type`, r.`type`) match
-				case (Type.IntType, Type.DoubleType) => (l.unsafe[Int].toDouble !== r.unsafe[Double]).prog
-				case (Type.DoubleType, Type.IntType) => (l.unsafe[Double] !== r.unsafe[Int].toDouble).prog
-				case _ if (l.`type`.name == r.`type`.name) =>
-					given Type[l.T] = l.`type`
-					(l.unsafe[l.T] !== r.unsafe[l.T]).prog
-				case _ => throw new Exception(s"Cannot compare types ${l.`type`.name} and ${r.`type`.name}")
-
-		def op_&(l: Prog, r: Prog): Prog.Aux[Boolean] =
-			(l.`type`, r.`type`) match
-				case (Type.BooleanType, Type.BooleanType) => (l.unsafe[Boolean] && r.unsafe[Boolean]).prog
-				case _ => throw new Exception(s"Cannot apply & boolean operator on types ${l.`type`.name} and ${r.`type`.name}")
-
-		def op_|(l: Prog, r: Prog): Prog.Aux[Boolean] =
-			(l.`type`, r.`type`) match
-				case (Type.BooleanType, Type.BooleanType) => (l.unsafe[Boolean] || r.unsafe[Boolean]).prog
-				case _ => throw new Exception(s"Cannot apply | boolean operator on types ${l.`type`.name} and ${r.`type`.name}")
+		import ParsingOps.*
 
 		def parens[$: P, T]: P[Prog] = P("(" ~/ andOr ~ ")")
 		def factor[$: P]: P[Prog] = P(`int` | `double` | boolean | parens)
@@ -173,7 +74,7 @@ object Parsing {
 						case _ => throw new Exception("unreachable")
 			}).fold(t => P(Fail(t.getMessage)), identity)
 
-		def addSub[$: P]: P[Prog] =
+		def additionSubtraction[$: P]: P[Prog] =
 			Try(P(divMul ~ (CharIn("+\\-").! ~/ divMul).rep).map {
 				case (left: Prog, ops: Seq[(String, Prog)]) =>
 					ops.foldLeft(left):
@@ -183,7 +84,7 @@ object Parsing {
 			}).fold(t => P(Fail(t.getMessage)), identity)
 
 		def comparison[$: P]: P[Prog] =
-			Try(P(addSub ~ (("<=" | "<" | ">=" | ">" | "==" | "!=").! ~/ addSub).rep).map {
+			Try(P(additionSubtraction ~ (("<=" | "<" | ">=" | ">" | "==" | "!=").! ~/ additionSubtraction).rep).map {
 				case (left: Prog, ops: Seq[(String, Prog)]) =>
 					ops.foldLeft(left):
 						case (acc, ("<", r))  => op_<(acc, r)
@@ -205,16 +106,32 @@ object Parsing {
 			}).fold(t => P(Fail(t.getMessage)), identity)
 
 		def letStmt[$: P]: P[Prog] =
-			P(`let` ~ validName ~ "=" ~ andOr).map {
+			P(`let` ~ validName ~ "=" ~ statement).map {
 				case (name, value) => Program.let(name, value.program)(using value.`type`).prog(using value.`type`)
 			}
 
 		def assignStmt[$: P]: P[Prog] =
-			P(validName ~ "=" ~ andOr).map {
+			P(validName ~ "=" ~ statement).map {
 				case (name, value) => Program.let(name, value.program)(using value.`type`).prog(using value.`type`)
 			}
 
-		def statement[$: P]: P[Prog] = P(assignStmt | letStmt | andOr)
+		def ifStmt[$: P]: P[Prog] =
+			Try(P(`if` ~ statement ~ `then` ~ statement ~ `else` ~ statement).map:
+				case (cond, thenp, elsep) => opIf(cond, thenp, elsep)
+			).fold(t => P(Fail(t.getMessage)), identity)
+
+		def repeatUntil[$: P]: P[Prog] =
+			Try(P(`repeat` ~ statement ~ `until` ~ statement).map:
+				case (action, condition) =>
+					Program.repeatUntil(action.program)(condition.unsafe[Boolean]).prog(using action.`type`)
+			).fold(t => P(Fail(t.getMessage)), identity)
+
+		def whileDo[$: P]: P[Prog] =
+			Try(P(`while` ~ statement ~ `do` ~ statement).map:
+				case (condition, action) => Program.whileDo(condition.unsafe[Boolean])(action.program).prog
+			).fold(t => P(Fail(t.getMessage)), identity)
+
+		def statement[$: P]: P[Prog] = P(ifStmt | repeatUntil | whileDo | letStmt | assignStmt | andOr)
 
 		def prog[$: P]: P[Prog] = P(statement ~ End)
 		def program[$: P]: P[Program[?]] = prog.map(_.program)
@@ -224,7 +141,7 @@ object Parsing {
 		val Parsed.Success(value, successIndex) = parse("var", `let`(using _)).get
 		assert(value == () & successIndex == 3)
 		println("==============================")
-		val x6 = parse("var ss = 4d > 3", program(using _))
+		val x6 = parse("var ss = if 4d >= 3 then 1 else 2", program(using _))
 		x6 match
 			case f: Parsed.Failure => println(s"msg: ${f.msg}, trace: ${f.trace().longMsg}")
 			case s @ Parsed.Success(value, index) => println(s"Parsed: \"\"\"\n${value[[a] =>> String]}\n\"\", value: ${value.compile.flatMap(_[Try])}, index: $index")

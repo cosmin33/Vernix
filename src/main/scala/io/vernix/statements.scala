@@ -76,7 +76,7 @@ object Statements:
 				State(ctx => (ctx, l.runA(ctx).value ++ r.runA(ctx).value))
 			def repeatUntil[A](action: CtxState[Expr[A]])(condition: CtxState[Expr[Boolean]]): CtxState[Expr[A]] =
 				State(ctx => ctx -> action.runA(ctx).value.repeatUntil(condition.runA(ctx).value))
-			def doWhile[A](condition: CtxState[Expr[Boolean]])(action: CtxState[Expr[A]]): CtxState[Expr[Unit]] =
+			def whileDo[A](condition: CtxState[Expr[Boolean]])(action: CtxState[Expr[A]]): CtxState[Expr[Unit]] =
 				State(ctx => ctx -> Expr.doWhile(condition.runA(ctx).value)(action.runA(ctx).value))
 			def ifElse[A](cond: CtxState[Expr[Boolean]])(ifTrue: CtxState[Expr[A]], ifFalse: CtxState[Expr[A]]): CtxState[Expr[A]] =
 				State(ctx => ctx -> cond.runA(ctx).value.ifElse(ifTrue.runA(ctx).value, ifFalse.runA(ctx).value))

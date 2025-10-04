@@ -71,5 +71,5 @@ object Expr:
 	def value[A: Type](v: A): Expr[A] = new Expr[A]:
 		def apply[F[_]: Ops]: F[A] = Ops[F].value(v)
 	def doWhile[A](condition: Expr[Boolean])(action: Expr[A]): Expr[Unit] = new Expr[Unit]:
-		def apply[F[_]: Ops]: F[Unit] = Ops[F].doWhile(condition[F])(action[F])
+		def apply[F[_]: Ops]: F[Unit] = Ops[F].whileDo(condition[F])(action[F])
 end Expr
