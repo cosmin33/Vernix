@@ -57,15 +57,15 @@ trait Program[A]:
 	def >=(that: Program[A])(using Type[A], Ordering[A]): Program[Boolean] = new Program[Boolean]:
 		def apply[F[_]: Statements]: F[Boolean] = Statements[F].`>=`(self[F], that[F])
 	
-	def compilation: Eval[Expr[A]] = self[[a] =>> State[OpContext, Expr[a]]].runA(OpContext.empty)
-	def compile: Try[Expr[A]] = Try(compilation.value)
+	def compilation(c: OpContext = OpContext.empty): Eval[Expr[A]] = self[[a] =>> State[OpContext, Expr[a]]].runA(c)
+	def compile: Try[Expr[A]] = Try(compilation().value)
 object Program:
 	def value[A: Type](v: A): Program[A] = new Program[A]:
 		def apply[F[_]: Statements]: F[A] = Statements[F].value(v)
 	def variable[A: Type](name: String): Program[A] = new Program[A]:
 		def apply[F[_]: Statements]: F[A] = Statements[F].variable[A](name)
 	def let[A: Type](name: String, value: Program[A]): Program[A] = new Program[A]:
-		def apply[F[_]: Statements]: F[A] = Statements[F].let(name, value[F])
+		def apply[F[_]: Statements]: F[A] = Statements[F].addVar(name, value[F])
 	def funDef[A: Type, B: Type](name: String, param: String, body: Program[B]): Program[Unit] = new Program[Unit]:
 		def apply[F[_]: Statements]: F[Unit] = Statements[F].funDef[A, B](name, param, body[F])
 	def funCall[A: Type, B: Type](name: String, param: Program[A]): Program[B] = new Program[B]:

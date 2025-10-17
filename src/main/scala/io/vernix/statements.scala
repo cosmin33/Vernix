@@ -6,7 +6,8 @@ import cats.implicits.*
 
 trait Statements[F[_]] extends Ops[F]:
 	def variable[A: Type](name: String): F[A]
-	def let[A: Type](name: String, value: F[A]): F[A]
+	def addVar[A: Type](name: String, value: F[A]): F[A]
+	def setVar[A: Type](name: String, value: F[A]): F[A]
 	def nest[A](fa: F[A]): F[A]
 	def funDef[A: Type, B: Type](name: String, param: String, body: F[B]): F[Unit]
 	def funCall[A: Type, B: Type](name: String, param: F[A]): F[B]
@@ -20,88 +21,95 @@ object Statements:
 			def typeK: TypeK[[a] =>> CtxState[Expr[a]]] = new TypeK[[a] =>> CtxState[Expr[a]]]:
 				def name: String = "CtxState[Expr[_]]"
 			def variable[A: Type](name: String): CtxState[Expr[A]] =
-				State { ctx =>
-					val v = ctx.getVariable[Expr[A]](name) match
+				State.inspect:
+					_.getVariable[Expr[A]](name) match
 						case OpContext.SearchResult.Found(v) => v
 						case OpContext.SearchResult.NotFound =>
 							throw new NoSuchElementException(s"Variable $name not found")
 						case OpContext.SearchResult.TypeMismatch(expected, found) =>
 							throw new ClassCastException(s"Variable $name is of type $found, expected $expected")
-					ctx -> v
-				}
-			def len(fa: CtxState[Expr[String]]): CtxState[Expr[Int]] = fa.map(e => e.len)
-			def toDouble(fa: CtxState[Expr[Int]]): CtxState[Expr[Double]] = fa.map(e => e.toDouble)
-			def let[A: Type](name: String, value: CtxState[Expr[A]]): CtxState[Expr[A]] =
-				State { ctx =>
-					val (newCtx, v) = value.run(ctx).value
-					val v1 = v.memoize
-					val updatedCtx = newCtx.addVariable(name, v1)
-					updatedCtx -> v1
-				}
+			def addVar[A: Type](name: String, value: CtxState[Expr[A]]): CtxState[Expr[A]] =
+				for
+					v <- value
+					vm = v.memoize
+					_ <- State.modify[OpContext](_.addVariable(name, vm))
+				yield v
+			def setVar[A: Type](name: String, value: CtxState[Expr[A]]): CtxState[Expr[A]] =
+				for
+					v <- value
+					_ <- State.inspect[OpContext, Unit](_.setVariable(name, v))
+				yield v
 			def nest[A](fa: CtxState[Expr[A]]): CtxState[Expr[A]] =
-				State(ctx => ctx -> fa.runA(ctx).value)
+				State.inspect(ctx => fa.runA(ctx.nest).value)
 			def funDef[A: Type, B: Type](name: String, param: String, body: CtxState[Expr[B]]): CtxState[Expr[Unit]] =
-				State { ctx =>
-					val updatedCtx = ctx.addFunction[Expr[A], Expr[B]](name, (ea: Expr[A]) => body.runA(ctx.addVariable(param, ea)).value)
-					updatedCtx -> Expr.value(())
-				}
+				for
+					_ <- State.modify[OpContext](_.nest)
+					f <- State.inspect[OpContext, Expr[A] => Expr[B]](c => ea => body.runA(c.addVariable(param, ea)).value)
+					_ <- State.modify[OpContext](_.unNest.addVariable[Expr[A] => Expr[B]](name, f))
+				yield Expr.value(())
 			def funCall[A: Type, B: Type](name: String, param: CtxState[Expr[A]]): CtxState[Expr[B]] =
-				State { ctx =>
-					val f = ctx.getFunction[Expr[A], Expr[B]](name) match
+				State.inspect:
+					ctx =>
+					val f = ctx.getVariable[Expr[A] => Expr[B]](name) match
 						case OpContext.SearchResult.Found(f) => f
 						case OpContext.SearchResult.NotFound =>
 							throw new NoSuchElementException(s"Function $name not found")
 						case OpContext.SearchResult.TypeMismatch(expected, found) =>
 							throw new ClassCastException(s"Function $name is of type $found, expected $expected")
-					ctx -> f(param.runA(ctx).value)
-				}
-			def value[A: Type](v: A): CtxState[Expr[A]] = State.pure(Expr.value(v))
+					f(param.runA(ctx).value)
+			def value[A: Type](v: A): CtxState[Expr[A]] =
+				State.pure(Expr.value(v))
+			def len(fa: CtxState[Expr[String]]): CtxState[Expr[Int]] =
+				fa.map(_.len)
+			def toDouble(fa: CtxState[Expr[Int]]): CtxState[Expr[Double]] =
+				fa.map(_.toDouble)
 			def add[N: {Type, Numeric}](l: CtxState[Expr[N]], r: CtxState[Expr[N]]): CtxState[Expr[N]] =
-				State(ctx => (ctx, l.runA(ctx).value + r.runA(ctx).value))
+				Apply[CtxState].map2(l, r)(_ + _)
 			def sub[N: {Type, Numeric}](l: CtxState[Expr[N]], r: CtxState[Expr[N]]): CtxState[Expr[N]] =
-				State(ctx => (ctx, l.runA(ctx).value - r.runA(ctx).value))
+				Apply[CtxState].map2(l, r)(_ - _)
 			def mul[N: {Type, Numeric}](l: CtxState[Expr[N]], r: CtxState[Expr[N]]): CtxState[Expr[N]] =
-				State(ctx => (ctx, l.runA(ctx).value * r.runA(ctx).value))
+				Apply[CtxState].map2(l, r)(_ * _)
 			def div[N: {Type, Fractional}](l: CtxState[Expr[N]], r: CtxState[Expr[N]]): CtxState[Expr[N]] =
-				State(ctx => (ctx, l.runA(ctx).value / r.runA(ctx).value))
+				Apply[CtxState].map2(l, r)(_ / _)
 			def quot[N: {Type, Integral}](l: CtxState[Expr[N]], r: CtxState[Expr[N]]): CtxState[Expr[N]] =
-				State(ctx => (ctx, l.runA(ctx).value.quot(r.runA(ctx).value)))
+				Apply[CtxState].map2(l, r)(_ `quot` _)
 			def mod[N: {Type, Integral}](l: CtxState[Expr[N]], r: CtxState[Expr[N]]): CtxState[Expr[N]] =
-				State(ctx => (ctx, l.runA(ctx).value.%(r.runA(ctx).value)))
+				Apply[CtxState].map2(l, r)(_ % _)
 			def neg[N: {Type, Numeric}](a: CtxState[Expr[N]]): CtxState[Expr[N]] =
-				State(ctx => (ctx, a.runA(ctx).value.neg))
+				a.map(_.neg)
 			def abs[N: {Type, Numeric}](a: CtxState[Expr[N]]): CtxState[Expr[N]] =
-				State(ctx => (ctx, a.runA(ctx).value.abs))
+				a.map(_.abs)
 			def concat(l: CtxState[Expr[String]], r: CtxState[Expr[String]]): CtxState[Expr[String]] =
-				State(ctx => (ctx, l.runA(ctx).value ++ r.runA(ctx).value))
+				Apply[CtxState].map2(l, r)(_ ++ _)
 			def repeatUntil[A](action: CtxState[Expr[A]])(condition: CtxState[Expr[Boolean]]): CtxState[Expr[A]] =
-				State(ctx => ctx -> action.runA(ctx).value.repeatUntil(condition.runA(ctx).value))
+				Apply[CtxState].map2(action, condition)(_ `repeatUntil` _)
 			def whileDo[A](condition: CtxState[Expr[Boolean]])(action: CtxState[Expr[A]]): CtxState[Expr[Unit]] =
-				State(ctx => ctx -> Expr.doWhile(condition.runA(ctx).value)(action.runA(ctx).value))
+				Apply[CtxState].map2(condition, action)(Expr.whileDo(_)(_))
 			def ifElse[A](cond: CtxState[Expr[Boolean]])(ifTrue: CtxState[Expr[A]], ifFalse: CtxState[Expr[A]]): CtxState[Expr[A]] =
-				State(ctx => ctx -> cond.runA(ctx).value.ifElse(ifTrue.runA(ctx).value, ifFalse.runA(ctx).value))
+				Apply[CtxState].map3(cond, ifTrue, ifFalse)(_.ifElse(_, _))
 			def and(l: CtxState[Expr[Boolean]], r: CtxState[Expr[Boolean]]): CtxState[Expr[Boolean]] =
-				State(ctx => (ctx, l.runA(ctx).value && r.runA(ctx).value))
+				Apply[CtxState].map2(l, r)(_ && _)
 			def or(l: CtxState[Expr[Boolean]], r: CtxState[Expr[Boolean]]): CtxState[Expr[Boolean]] =
-				State(ctx => (ctx, l.runA(ctx).value || r.runA(ctx).value))
+				Apply[CtxState].map2(l, r)(_ || _)
 			def not(a: CtxState[Expr[Boolean]]): CtxState[Expr[Boolean]] =
-				State(ctx => (ctx, !a.runA(ctx).value))
+				a.map(!_)
 			def equals[A: Type](l: CtxState[Expr[A]], r: CtxState[Expr[A]]): CtxState[Expr[Boolean]] =
-				State(ctx => (ctx, l.runA(ctx).value === r.runA(ctx).value))
+				Apply[CtxState].map2(l, r)(_ === _)
 			def notEquals[A: Type](l: CtxState[Expr[A]], r: CtxState[Expr[A]]): CtxState[Expr[Boolean]] =
-				State(ctx => (ctx, l.runA(ctx).value !== r.runA(ctx).value))
+				Apply[CtxState].map2(l, r)(_ !== _)
 			def < [A: {Type, Ordering}](l: CtxState[Expr[A]], r: CtxState[Expr[A]]): CtxState[Expr[Boolean]] =
-				State(ctx => (ctx, l.runA(ctx).value < r.runA(ctx).value))
+				Apply[CtxState].map2(l, r)(_ < _)
 			def <=[A: {Type, Ordering}](l: CtxState[Expr[A]], r: CtxState[Expr[A]]): CtxState[Expr[Boolean]] =
-				State(ctx => (ctx, l.runA(ctx).value <= r.runA(ctx).value))
+				Apply[CtxState].map2(l, r)(_ <= _)
 			def > [A: {Type, Ordering}](l: CtxState[Expr[A]], r: CtxState[Expr[A]]): CtxState[Expr[Boolean]] =
-				State(ctx => (ctx, l.runA(ctx).value > r.runA(ctx).value))
+				Apply[CtxState].map2(l, r)(_ > _)
 			def >=[A: {Type, Ordering}](l: CtxState[Expr[A]], r: CtxState[Expr[A]]): CtxState[Expr[Boolean]] =
-				State(ctx => (ctx, l.runA(ctx).value >= r.runA(ctx).value))
+				Apply[CtxState].map2(l, r)(_ >= _)
 			def leftEntuple[A, T <: NonEmptyTuple](a: CtxState[Expr[A]], t: CtxState[Expr[T]]): CtxState[Expr[A *: T]] =
-				State(ctx => ctx -> a.runA(ctx).value.leftEntuple(t.runA(ctx).value))
+				Apply[CtxState].map2(a, t)(_ `leftEntuple` _)
 			def rightEntuple[T <: NonEmptyTuple, A](t: CtxState[Expr[T]], a: CtxState[Expr[A]]): CtxState[Expr[Tuple.Append[T, A]]] =
-				State(ctx => ctx -> a.runA(ctx).value.rightEntuple(t.runA(ctx).value))
-			def *>[A, B](l: CtxState[Expr[A]], r: CtxState[Expr[B]]): CtxState[Expr[B]] = l *> r
+				Apply[CtxState].map2(a, t)(_ `rightEntuple` _)
+			def *>[A, B](l: CtxState[Expr[A]], r: CtxState[Expr[B]]): CtxState[Expr[B]] = 
+				l *> r
 
 end Statements

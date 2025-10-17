@@ -144,7 +144,8 @@ object Ops:
 		def rightEntuple[T <: NonEmptyTuple, A](t: String, a: String): String = s"($t, $a)"
 		def *>[A, B](l: String, r: String): String = s"$l\n$r"
 		def variable[A: Type](name: String): String = s"var[${Type[A].name}]($name)"
-		def let[A: Type](name: String, value: String): String = s"let $name: ${Type[A].name} = $value"
+		def addVar[A: Type](name: String, value: String): String = s"var $name: ${Type[A].name} = $value"
+		def setVar[A: Type](name: String, value: String): String = s"$name = $value"
 		def nest[A](fa: String): String = s"{$fa}"
 		def funDef[A: Type, B: Type](name: String, param: String, body: String): String =
 			s"def $name(${Type[A].name} $param): ${Type[B].name} = $body"
@@ -193,7 +194,8 @@ object Ops:
 		def *>[A, B](l: Type[A], r: Type[B]): Type[B] = r
 		// Statements[Type] specific
 		def variable[A: Type](name: String): Type[A] = Type[A]
-		def let[A: Type](name: String, value: Type[A]): Type[A] = value
+		def addVar[A: Type](name: String, value: Type[A]): Type[A] = value
+		def setVar[A: Type](name: String, value: Type[A]): Type[A] = value
 		def nest[A](fa: Type[A]): Type[A] = fa
 		def funDef[A: Type, B: Type](name: String, param: String, body: Type[B]): Type[Unit] = Type[Unit]
 		def funCall[A: Type, B: Type](name: String, param: Type[A]): 	Type[B] = Type[B]
@@ -277,8 +279,10 @@ object Ops:
 			State(id => id -> (l.runA(id).value + "\n" + r.runA(id).value.ident(id)))
 		// Statements[IdentState] specific
 		def variable[A: Type](name: String): IdentState[A] = State.pure(s"var[${Type[A].name}]($name)")
-		def let[A: Type](name: String, value: IdentState[A]): IdentState[A] =
-			value.map(v => s"let[${Type[A].name}]($name = $v)")
+		def addVar[A: Type](name: String, value: IdentState[A]): IdentState[A] =
+			value.map(v => s"let $name: ${Type[A].name} = $v")
+		def setVar[A: Type](name: String, value: IdentState[A]): IdentState[A] =
+			value.map(v => s"$name = $v")
 		def nest[A](fa: IdentState[A]): IdentState[A] =
 			State(i => i -> ("{" + "\n" + fa.runA(i + 2).value.ident(i) + "\n" + "}".ident(i)))
 		def funDef[A: Type, B: Type](name: String, param: String, body: IdentState[B]): IdentState[Unit] =

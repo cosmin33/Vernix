@@ -61,15 +61,14 @@ trait Expr[A]:
 				if (lastType == Ops[F].typeK.name)
 					last.asInstanceOf[F[A]]
 				else
-					val r = self[F]
-					last = r
 					lastType = Ops[F].typeK.name
-					r
+					last = self[F]
+					last.asInstanceOf[F[A]]
 	def prg: Program[A] = new Program[A]:
 		def apply[F[_]: Statements]: F[A] = self[F]
 object Expr:
 	def value[A: Type](v: A): Expr[A] = new Expr[A]:
 		def apply[F[_]: Ops]: F[A] = Ops[F].value(v)
-	def doWhile[A](condition: Expr[Boolean])(action: Expr[A]): Expr[Unit] = new Expr[Unit]:
+	def whileDo[A](condition: Expr[Boolean])(action: Expr[A]): Expr[Unit] = new Expr[Unit]:
 		def apply[F[_]: Ops]: F[Unit] = Ops[F].whileDo(condition[F])(action[F])
 end Expr

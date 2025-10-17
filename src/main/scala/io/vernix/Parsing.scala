@@ -106,14 +106,16 @@ object Parsing {
 			}).fold(t => P(Fail(t.getMessage)), identity)
 
 		def letStmt[$: P]: P[Prog] =
-			P(`let` ~ validName ~ "=" ~ statement).map {
-				case (name, value) => Program.let(name, value.program)(using value.`type`).prog(using value.`type`)
-			}
+			P(`let` ~ validName ~ "=" ~ statement).map:
+				case (name, value) =>
+					given Type[value.T] = value.`type`
+					Program.let(name, value.program).prog
 
 		def assignStmt[$: P]: P[Prog] =
-			P(validName ~ "=" ~ statement).map {
-				case (name, value) => Program.let(name, value.program)(using value.`type`).prog(using value.`type`)
-			}
+			P(validName ~ "=" ~ statement).map:
+				case (name, value) =>
+					given Type[value.T] = value.`type`
+					Program.let(name, value.program).prog
 
 		def ifStmt[$: P]: P[Prog] =
 			Try(P(`if` ~ statement ~ `then` ~ statement ~ `else` ~ statement).map:
@@ -157,6 +159,7 @@ object Parsing {
 		val r = parseUnknown("var x = 2 + 3")
 		println("-------------------------------")
 		println(r.map(_[[a] =>> String]))
+		println(r.map(_.compile.flatMap(_[Try])))
 		println("-------------------------------")
 	}
 
