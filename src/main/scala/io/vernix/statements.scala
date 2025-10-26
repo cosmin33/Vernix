@@ -31,8 +31,9 @@ object Statements:
 			def addVar[A: Type](name: String, value: CtxState[Expr[A]]): CtxState[Expr[A]] =
 				for
 					v <- value
-					vm = v.memoize
-					_ <- State.modify[OpContext](_.addVariable(name, vm))
+//					vm = v.memoize
+//					_ <- State.modify[OpContext](_.addVariable(name, vm))
+					_ <- State.modify[OpContext](_.addVariable(name, v))
 				yield v
 			def setVar[A: Type](name: String, value: CtxState[Expr[A]]): CtxState[Expr[A]] =
 				for

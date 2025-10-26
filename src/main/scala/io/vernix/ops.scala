@@ -143,14 +143,14 @@ object Ops:
 		def leftEntuple[A, T <: NonEmptyTuple](a: String, t: String): String = s"($a, $t)"
 		def rightEntuple[T <: NonEmptyTuple, A](t: String, a: String): String = s"($t, $a)"
 		def *>[A, B](l: String, r: String): String = s"$l\n$r"
-		def variable[A: Type](name: String): String = s"var[${Type[A].name}]($name)"
+		def variable[A: Type](name: String): String = s"$name"
 		def addVar[A: Type](name: String, value: String): String = s"var $name: ${Type[A].name} = $value"
 		def setVar[A: Type](name: String, value: String): String = s"$name = $value"
 		def nest[A](fa: String): String = s"{$fa}"
 		def funDef[A: Type, B: Type](name: String, param: String, body: String): String =
-			s"def $name(${Type[A].name} $param): ${Type[B].name} = $body"
+			s"def $name($param: ${Type[A].name}): ${Type[B].name} = $body"
 		def funCall[A: Type, B: Type](name: String, param: String): String =
-			s"$name[${Type[A].name} => ${Type[B].name}]($param)"
+			s"$name($param)"
 
 	opaque type ReturnType <: String = String
 	object ReturnType:
@@ -278,9 +278,9 @@ object Ops:
 		def *>[A, B](l: IdentState[String], r: IdentState[String]): IdentState[String] =
 			State(id => id -> (l.runA(id).value + "\n" + r.runA(id).value.ident(id)))
 		// Statements[IdentState] specific
-		def variable[A: Type](name: String): IdentState[A] = State.pure(s"var[${Type[A].name}]($name)")
+		def variable[A: Type](name: String): IdentState[A] = State.pure(s"$name")
 		def addVar[A: Type](name: String, value: IdentState[A]): IdentState[A] =
-			value.map(v => s"let $name: ${Type[A].name} = $v")
+			value.map(v => s"var $name: ${Type[A].name} = $v")
 		def setVar[A: Type](name: String, value: IdentState[A]): IdentState[A] =
 			value.map(v => s"$name = $v")
 		def nest[A](fa: IdentState[A]): IdentState[A] =
@@ -288,10 +288,10 @@ object Ops:
 		def funDef[A: Type, B: Type](name: String, param: String, body: IdentState[B]): IdentState[Unit] =
 			State { i =>
 				val b = body.runA(i + 2).value
-				i -> (s"funDef[${Type[A].name} => ${Type[B].name}]($name($param) {" + "\n" + b.ident(i + 2) + "\n" + "}".ident(i))
+				i -> (s"def $name($param: ${Type[A].name}): ${Type[B].name} {" + "\n" + b.ident(i + 2) + "\n" + "}".ident(i))
 			}
 		def funCall[A: Type, B: Type](name: String, param: IdentState[A]): IdentState[B] =
-			param.map(p => s"function[${Type[A].name} => ${Type[B].name}]($name($p))")
+			param.map(p => s"$name($p)")
 
 
 end Ops

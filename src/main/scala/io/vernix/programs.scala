@@ -64,8 +64,10 @@ object Program:
 		def apply[F[_]: Statements]: F[A] = Statements[F].value(v)
 	def variable[A: Type](name: String): Program[A] = new Program[A]:
 		def apply[F[_]: Statements]: F[A] = Statements[F].variable[A](name)
-	def let[A: Type](name: String, value: Program[A]): Program[A] = new Program[A]:
+	def addVar[A: Type](name: String, value: Program[A]): Program[A] = new Program[A]:
 		def apply[F[_]: Statements]: F[A] = Statements[F].addVar(name, value[F])
+	def setVar[A: Type](name: String, value: Program[A]): Program[A] = new Program[A]:
+		def apply[F[_]: Statements]: F[A] = Statements[F].setVar(name, value[F])
 	def funDef[A: Type, B: Type](name: String, param: String, body: Program[B]): Program[Unit] = new Program[Unit]:
 		def apply[F[_]: Statements]: F[Unit] = Statements[F].funDef[A, B](name, param, body[F])
 	def funCall[A: Type, B: Type](name: String, param: Program[A]): Program[B] = new Program[B]:

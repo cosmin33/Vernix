@@ -63,7 +63,10 @@ object Parsing {
 		import ParsingOps.*
 
 		def parens[$: P, T]: P[Prog] = P("(" ~/ andOr ~ ")")
-		def factor[$: P]: P[Prog] = P(`int` | `double` | boolean | parens)
+		def factor[$: P]: P[Prog] = P(`int` | `double` | boolean | parens | block | variableInt)
+		def variableInt[$: P]: P[Prog] = P(validName).map:
+			name =>
+				Program.variable[Int](name).prog
 		def divMul[$: P, T]: P[Prog] =
 			Try(P(factor ~ (CharIn("*/%").! ~/ factor).rep).map {
 				case (left: Prog, ops: Seq[(String, Prog)]) =>
@@ -109,16 +112,16 @@ object Parsing {
 			P(`let` ~ validName ~ "=" ~ statement).map:
 				case (name, value) =>
 					given Type[value.T] = value.`type`
-					Program.let(name, value.program).prog
+					Program.addVar(name, value.program).prog
 
 		def assignStmt[$: P]: P[Prog] =
 			P(validName ~ "=" ~ statement).map:
 				case (name, value) =>
 					given Type[value.T] = value.`type`
-					Program.let(name, value.program).prog
+					Program.setVar(name, value.program).prog
 
 		def ifStmt[$: P]: P[Prog] =
-			Try(P(`if` ~ statement ~ `then` ~ statement ~ `else` ~ statement).map:
+			Try(P(`if` ~ statement ~ `then`.? ~ statement ~ `else` ~ statement).map:
 				case (cond, thenp, elsep) => opIf(cond, thenp, elsep)
 			).fold(t => P(Fail(t.getMessage)), identity)
 
@@ -135,19 +138,25 @@ object Parsing {
 
 		def statement[$: P]: P[Prog] = P(ifStmt | repeatUntil | whileDo | letStmt | assignStmt | andOr)
 
-		def prog[$: P]: P[Prog] = P(statement ~ End)
-		def program[$: P]: P[Program[?]] = prog.map(_.program)
+		def block[$: P]: P[Prog] = P("{" ~ statement ~ (Semi ~~ statement).rep ~ "}").map:
+			case (first: Prog, rest: Seq[Prog]) =>
+				rest.foldLeft(first)((acc, p) => acc.program.*>(p.program).prog(using p.`type`))
 
-		println("Assertions......")
-		println("==============================")
-		val Parsed.Success(value, successIndex) = parse("var", `let`(using _)).get
-		assert(value == () & successIndex == 3)
-		println("==============================")
-		val x6 = parse("var ss = if 4d >= 3 then 1 else 2", program(using _))
-		x6 match
-			case f: Parsed.Failure => println(s"msg: ${f.msg}, trace: ${f.trace().longMsg}")
-			case s @ Parsed.Success(value, index) => println(s"Parsed: \"\"\"\n${value[[a] =>> String]}\n\"\", value: ${value.compile.flatMap(_[Try])}, index: $index")
-		println("==============================")
+		def prog[$: P]: P[Prog] = P(Newline.? ~ statement ~ statement.rep ~ End).map:
+			case (first: Prog, rest: Seq[Prog]) =>
+				rest.foldLeft(first)((acc, p) => acc.program.*>(p.program).prog(using p.`type`))
+
+		def program[$: P]: P[Program[?]] = prog.map(_.program)
+//		println("Assertions......")
+//		println("==============================")
+//		val Parsed.Success(value, successIndex) = parse("var", `let`(using _)).get
+//		assert(value == () & successIndex == 3)
+//		println("==============================")
+//		val x6 = parse("var ss = if 4d >= 3 then 1 else 2", program(using _))
+//		x6 match
+//			case f: Parsed.Failure => println(s"msg: ${f.msg}, trace: ${f.trace().longMsg}")
+//			case s @ Parsed.Success(value, index) => println(s"Parsed: \"\"\"\n${value[[a] =>> String]}\n\"\", value: ${value.compile.flatMap(_[Try])}, index: $index")
+//		println("==============================")
 
 
 		parse(s, program(using _)) match
@@ -155,12 +164,40 @@ object Parsing {
 			case s @ Parsed.Success(value, index) => Right(value)
 	}
 
-	def main(args: Array[String]): Unit = {
-		val r = parseUnknown("var x = 2 + 3")
+	def parseRun(s: String): Unit = {
+		val r = parseUnknown(s)
 		println("-------------------------------")
 		println(r.map(_[[a] =>> String]))
-		println(r.map(_.compile.flatMap(_[Try])))
+		println("===============================")
+		println(r.map(_.compile.map(_.apply[[a] =>> String])))
+		println("===============================")
+		println(r.map(_.compile.flatMap(_.apply[Try])))
+//		println(r.map(_.compile.flatMap(_[Try])))
 		println("-------------------------------")
+	}
+
+	def main(args: Array[String]): Unit = {
+		parseRun(
+			"""var x = 2 + 3 * 4
+				|var y = x - 5 / 2
+				|""".stripMargin
+		)
+		parseRun(
+			"""
+				|var x = 2 + 3 * 4
+				|var y = x - 5 / 2
+				|if y > 10 then
+				|  x = x + 1
+				|else
+				|  x = x - 1
+//				|while x < 20 do
+//				|  x = x + 2
+//				|repeat
+//				|  y = y + 3
+//				|until y >= 30
+	 			|x
+			""".stripMargin
+		)
 	}
 
 }

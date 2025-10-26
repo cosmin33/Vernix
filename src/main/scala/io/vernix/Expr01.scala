@@ -14,9 +14,9 @@ object Expr01 extends ZIOAppDefault {
 
 	def runExample1: ZIO[ZIOAppArgs & Scope, Any, Any] = {
 		import Program.*
-		val e: Program[_] =
-			let("x", value(2)) *>
-				let("x", value(2) + value(3)) *>
+		val e: Program[?] =
+			addVar("x", value(2)) *>
+				setVar("x", value(2) + value(3)) *>
 				funDef[Int, Int]("triple", "i", (variable[Int]("i") * value(3))) *>
 				(variable[Int]("x")
 					+ variable[Int]("x")
@@ -49,11 +49,11 @@ object Expr01 extends ZIOAppDefault {
 	def runBooleanExample: ZIO[ZIOAppArgs & Scope, Any, Any] = {
 		import Program.*
 		val booleanProgram: Program[Boolean] =
-			let("x", value(5)) *>
-				let("y", value(10)) *>
-				let("isEqual", variable[Int]("x") === variable[Int]("y")) *>
-				let("isGreater", variable[Int]("y") !== variable[Int]("x")) *>
-				let("result", variable[Boolean]("isEqual") || variable[Boolean]("isGreater")) *>
+			addVar("x", value(5)) *>
+				addVar("y", value(10)) *>
+				addVar("isEqual", variable[Int]("x") === variable[Int]("y")) *>
+				addVar("isGreater", variable[Int]("y") >= variable[Int]("x")) *>
+				addVar("result", variable[Boolean]("isEqual") || variable[Boolean]("isGreater")) *>
 				!variable[Boolean]("result")
 		
 		val ce: Task[Expr[Boolean]] = ZIO.fromTry(booleanProgram.compile)
