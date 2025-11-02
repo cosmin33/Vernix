@@ -64,6 +64,8 @@ trait Expr[A]:
 					lastType = Ops[F].typeK.name
 					last = self[F]
 					last.asInstanceOf[F[A]]
+	def *>[B](that: Expr[B]): Expr[B] = new Expr[B]:
+		def apply[F[_]: Ops]: F[B] = Ops[F].*>(self[F], that[F])
 	def prg: Program[A] = new Program[A]:
 		def apply[F[_]: Statements]: F[A] = self[F]
 object Expr:

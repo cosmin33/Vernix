@@ -152,12 +152,6 @@ object Ops:
 		def funCall[A: Type, B: Type](name: String, param: String): String =
 			s"$name($param)"
 
-	opaque type ReturnType <: String = String
-	object ReturnType:
-		def apply(s: String): ReturnType = s
-		extension (r: ReturnType)
-			def value: String = r
-
 	type Id[A] = A
 
 	given Statements[Type] = new Statements[Type]:
@@ -199,8 +193,6 @@ object Ops:
 		def nest[A](fa: Type[A]): Type[A] = fa
 		def funDef[A: Type, B: Type](name: String, param: String, body: Type[B]): Type[Unit] = Type[Unit]
 		def funCall[A: Type, B: Type](name: String, param: Type[A]): 	Type[B] = Type[B]
-
-
 
 	type IdentState[A] = State[Int, String]
 	extension (s: State[Int, String])

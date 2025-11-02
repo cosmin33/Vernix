@@ -87,7 +87,8 @@ object Statements:
 			def whileDo[A](condition: CtxState[Expr[Boolean]])(action: CtxState[Expr[A]]): CtxState[Expr[Unit]] =
 				Apply[CtxState].map2(condition, action)(Expr.whileDo(_)(_))
 			def ifElse[A](cond: CtxState[Expr[Boolean]])(ifTrue: CtxState[Expr[A]], ifFalse: CtxState[Expr[A]]): CtxState[Expr[A]] =
-				Apply[CtxState].map3(cond, ifTrue, ifFalse)(_.ifElse(_, _))
+				cond.flatMap(c => ???)
+//				Apply[CtxState].map3(cond, ifTrue, ifFalse)(_.ifElse(_, _))
 			def and(l: CtxState[Expr[Boolean]], r: CtxState[Expr[Boolean]]): CtxState[Expr[Boolean]] =
 				Apply[CtxState].map2(l, r)(_ && _)
 			def or(l: CtxState[Expr[Boolean]], r: CtxState[Expr[Boolean]]): CtxState[Expr[Boolean]] =
@@ -110,7 +111,7 @@ object Statements:
 				Apply[CtxState].map2(a, t)(_ `leftEntuple` _)
 			def rightEntuple[T <: NonEmptyTuple, A](t: CtxState[Expr[T]], a: CtxState[Expr[A]]): CtxState[Expr[Tuple.Append[T, A]]] =
 				Apply[CtxState].map2(a, t)(_ `rightEntuple` _)
-			def *>[A, B](l: CtxState[Expr[A]], r: CtxState[Expr[B]]): CtxState[Expr[B]] = 
-				l *> r
+			def *>[A, B](l: CtxState[Expr[A]], r: CtxState[Expr[B]]): CtxState[Expr[B]] =
+				Apply[CtxState].map2(l, r)(_ *> _)
 
 end Statements
