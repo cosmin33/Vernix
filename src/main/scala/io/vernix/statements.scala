@@ -87,8 +87,7 @@ object Statements:
 			def whileDo[A](condition: CtxState[Expr[Boolean]])(action: CtxState[Expr[A]]): CtxState[Expr[Unit]] =
 				Apply[CtxState].map2(condition, action)(Expr.whileDo(_)(_))
 			def ifElse[A](cond: CtxState[Expr[Boolean]])(ifTrue: CtxState[Expr[A]], ifFalse: CtxState[Expr[A]]): CtxState[Expr[A]] =
-				cond.flatMap(c => ???)
-//				Apply[CtxState].map3(cond, ifTrue, ifFalse)(_.ifElse(_, _))
+				Apply[CtxState].map3(cond, ifTrue, ifFalse)(_.ifElse(_, _))
 			def and(l: CtxState[Expr[Boolean]], r: CtxState[Expr[Boolean]]): CtxState[Expr[Boolean]] =
 				Apply[CtxState].map2(l, r)(_ && _)
 			def or(l: CtxState[Expr[Boolean]], r: CtxState[Expr[Boolean]]): CtxState[Expr[Boolean]] =

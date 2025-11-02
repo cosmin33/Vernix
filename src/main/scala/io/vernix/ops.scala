@@ -42,7 +42,7 @@ object Ops:
 	given Ops[Task] =
 		new Ops[Task]:
 			val typeK: TypeK[Task] = new TypeK[Task]:
-				def name: String = "Task[_]"
+				def name: String = "Task"
 			def value[A: Type](v: A): Task[A] = ZIO.succeed(v)
 			def add[N: {Type, Numeric}](l: Task[N], r: Task[N]): Task[N] = l.zipWith(r)(Numeric[N].plus)
 			def mul[N: {Type, Numeric}](l: Task[N], r: Task[N]): Task[N] = l.zipWith(r)(Numeric[N].times)
@@ -80,7 +80,7 @@ object Ops:
 	given Ops[Try] =
 		new Ops[Try]:
 			val typeK: TypeK[Try] = new TypeK[Try]:
-				def name: String = "Try[_]"
+				def name: String = "Try"
 			def value[A: Type](v: A): Try[A] = scala.util.Try(v)
 			def add[N: {Type, Numeric}](l: Try[N], r: Try[N]): Try[N] = l.flatMap(a => r.map(b => Numeric[N].plus(a, b)))
 			def sub[N: {Type, Numeric}](l: Try[N], r: Try[N]): Try[N] = l.flatMap(a => r.map(b => Numeric[N].minus(a, b)))
@@ -156,7 +156,7 @@ object Ops:
 
 	given Statements[Type] = new Statements[Type]:
 		val typeK: TypeK[Type] = new TypeK[Type]:
-			def name: String = "Type[_]"
+			def name: String = "Type"
 		def value[A: Type](v: A): Type[A] = Type[A]
 		def add[N: {Type, Numeric}](l: Type[N], r: Type[N]): Type[N] = Type[N]
 		def sub[N: {Type, Numeric}](l: Type[N], r: Type[N]): Type[N] = Type[N]
@@ -202,7 +202,7 @@ object Ops:
 
 	given Statements[IdentState] = new Statements[IdentState]:
 		val typeK: TypeK[IdentState] = new TypeK[IdentState]:
-			def name: String = "IdentState[_]"
+			def name: String = "IdentState"
 		def value[A: Type](v: A): IdentState[String] = State.pure(v.toString).ident
 		def add[N: {Type, Numeric}](l: IdentState[N], r: IdentState[N]): IdentState[N] =
 			l.flatMap(l => r.map(r => s"($l + $r)"))
