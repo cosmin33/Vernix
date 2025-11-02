@@ -1,5 +1,7 @@
 package io.vernix
 
+import cats.Monad
+
 import scala.util.Try
 import zio.*
 import cats.data.*
@@ -38,6 +40,44 @@ trait Ops[F[_]]:
 	def *>[A, B](l: F[A], r: F[B]): F[B]
 object Ops:
 	def apply[F[_]](using ops: Ops[F]): Ops[F] = ops
+
+	def opsF[F[_]: Monad]: Ops[F] =
+		new Ops[F]:
+			val typeK: TypeK[F] = new TypeK[F]:
+				def name: String = "F: Monad"
+			def value[A: Type](v: A): F[A] = Monad[F].pure(v)
+			def add[N: {Type, Numeric}](l: F[N], r: F[N]): F[N] = Monad[F].flatMap(l)(a => Monad[F].map(r)(b => Numeric[N].plus(a, b)))
+			def sub[N: {Type, Numeric}](l: F[N], r: F[N]): F[N] = Monad[F].flatMap(l)(a => Monad[F].map(r)(b => Numeric[N].minus(a, b)))
+			def mul[N: {Type, Numeric}](l: F[N], r: F[N]): F[N] = Monad[F].flatMap(l)(a => Monad[F].map(r)(b => Numeric[N].times(a, b)))
+			def div[N: {Type, Fractional}](l: F[N], r: F[N]): F[N] = Monad[F].flatMap(l)(a => Monad[F].map(r)(b => Fractional[N].div(a, b)))
+			def quot[N: {Type, Integral}](l: F[N], r: F[N]): F[N] = Monad[F].flatMap(l)(a => Monad[F].map(r)(b => Integral[N].quot(a, b)))
+			def mod[N: {Type, Integral}](l: F[N], r: F[N]): F[N] = Monad[F].flatMap(l)(a => Monad[F].map(r)(b => Integral[N].rem(a, b)))
+			def neg[N: {Type, Numeric}](a: F[N]): F[N] = Monad[F].map(a)(Numeric[N].negate)
+			def abs[N: {Type, Numeric}](a: F[N]): F[N] = Monad[F].map(a)(Numeric[N].abs)
+			def len(fa:F[String]): F[Int] = Monad[F].map(fa)(_.length)
+			def toDouble(fa: F[Int]): F[Double] = Monad[F].map(fa)(_.toDouble)
+			def concat(l: F[String], r: F[String]): F[String] = Monad[F].flatMap(l)(a => Monad[F].map(r)(b => a + b))
+			def repeatUntil[A](action: F[A])(condition: F[Boolean]): F[A] =
+				Monad[F].flatMap(action)(a => Monad[F].flatMap(condition)(
+					if _ then Monad[F].pure(a)
+					else repeatUntil(action)(condition)
+				))
+			def whileDo[A](condition: F[Boolean])(action: F[A]): F[Unit] =
+				Monad[F].flatMap(condition)(c => if c then Monad[F].pure(()) else Monad[F].flatMap(action)(_ => whileDo(condition)(action)))
+			def ifElse[A](cond: F[Boolean])(ifTrue: F[A], ifFalse: F[A]): F[A] =
+				Monad[F].flatMap(cond)(c => if c then ifTrue else ifFalse)
+			def and(l: F[Boolean], r: F[Boolean]): F[Boolean] = Monad[F].flatMap(l)(a => Monad[F].map(r)(b => a && b))
+			def or(l: F[Boolean], r: F[Boolean]): F[Boolean] = Monad[F].flatMap(l)(a => Monad[F].map(r)(b => a || b))
+			def not(a: F[Boolean]): F[Boolean] = Monad[F].map(a)(!_)
+			def equals[A: Type](l: F[A], r: F[A]): F[Boolean] = Monad[F].flatMap(l)(a => Monad[F].map(r)(b => a == b))
+			def notEquals[A: Type](l: F[A], r: F[A]): F[Boolean] = Monad[F].flatMap(l)(a => Monad[F].map(r)(b => a != b))
+			def < [A: {Type, Ordering}](l: F[A], r: F[A]): F[Boolean] = Monad[F].flatMap(l)(a => Monad[F].map(r)(b => Ordering[A].lt(a, b)))
+			def <=[A: {Type, Ordering}](l: F[A], r: F[A]): F[Boolean] = Monad[F].flatMap(l)(a => Monad[F].map(r)(b => Ordering[A].lteq(a, b)))
+			def > [A: {Type, Ordering}](l: F[A], r: F[A]): F[Boolean] = Monad[F].flatMap(l)(a => Monad[F].map(r)(b => Ordering[A].gt(a, b)))
+			def >=[A: {Type, Ordering}](l: F[A], r: F[A]): F[Boolean] = Monad[F].flatMap(l)(a => Monad[F].map(r)(b => Ordering[A].gteq(a, b)))
+			def leftEntuple[A, T <: NonEmptyTuple](a: F[A], t: F[T]): F[A *: T] = Monad[F].flatMap(a)(av => Monad[F].map(t)(tv => av *: tv))
+			def rightEntuple[T <: NonEmptyTuple, A](t: F[T], a: F[A]): F[Tuple.Append[T, A]] = Monad[F].flatMap(t)(tv => Monad[F].map(a)(av => tv :* av))
+			def *>[A, B](l: F[A], r: F[B]): F[B] = Monad[F].flatMap(l)(_ => r)
 
 	given Ops[Task] =
 		new Ops[Task]:
@@ -151,8 +191,6 @@ object Ops:
 			s"def $name($param: ${Type[A].name}): ${Type[B].name} = $body"
 		def funCall[A: Type, B: Type](name: String, param: String): String =
 			s"$name($param)"
-
-	type Id[A] = A
 
 	given Statements[Type] = new Statements[Type]:
 		val typeK: TypeK[Type] = new TypeK[Type]:
