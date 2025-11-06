@@ -10,6 +10,7 @@ lazy val root = (project in file("."))
       "dev.zio" %% "zio-test" % "2.1.11" % Test,
       "dev.zio" %% "zio-interop-cats" % "23.1.0.5",
       "org.typelevel" %% "cats-core" % "2.9.0",
+			"org.typelevel" %% "cats-mtl" % "1.6.0",
       "org.typelevel" %% "spire" % "0.18.0",
       "nl.vroste" %% "rezilience" % "0.10.4",
       "com.lihaoyi" %% "fastparse" % "3.1.1",

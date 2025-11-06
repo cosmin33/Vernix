@@ -3,6 +3,7 @@ package io.vernix
 import scala.util.Try
 import fastparse.*
 import fastparse.ScalaWhitespace.*
+import zio.interop.catz.*
 import Prog.prog
 
 object Parsing {
@@ -147,17 +148,6 @@ object Parsing {
 				rest.foldLeft(first)((acc, p) => acc.program.*>(p.program).prog(using p.`type`))
 
 		def program[$: P]: P[Program[?]] = prog.map(_.program)
-//		println("Assertions......")
-//		println("==============================")
-//		val Parsed.Success(value, successIndex) = parse("var", `let`(using _)).get
-//		assert(value == () & successIndex == 3)
-//		println("==============================")
-//		val x6 = parse("var ss = if 4d >= 3 then 1 else 2", program(using _))
-//		x6 match
-//			case f: Parsed.Failure => println(s"msg: ${f.msg}, trace: ${f.trace().longMsg}")
-//			case s @ Parsed.Success(value, index) => println(s"Parsed: \"\"\"\n${value[[a] =>> String]}\n\"\", value: ${value.compile.flatMap(_[Try])}, index: $index")
-//		println("==============================")
-
 
 		parse(s, program(using _)) match
 			case f: Parsed.Failure => Left(f.trace().longMsg)
@@ -169,10 +159,11 @@ object Parsing {
 		println("-------------------------------")
 		println(r.map(_[[a] =>> String]))
 		println("===============================")
-		println(r.map(_.compile.map(_.apply[[a] =>> String])))
+//		println(r.map(_.compile.map(_.apply[[a] =>> String])))
+		given Statements[Try] = Statements.getStatement(VarHeap.empty)
+		println(r.map(_[Try]))
 		println("===============================")
-		println(r.map(_.compile.flatMap(_.apply[Try])))
-//		println(r.map(_.compile.flatMap(_[Try])))
+//		println(r.map(_.compile.flatMap(_.apply[Try])))
 		println("-------------------------------")
 	}
 
@@ -186,15 +177,16 @@ object Parsing {
 			"""
 				|var x = 2 + 3 * 4
 				|var y = x - 5 / 2
+				|x = x - 10
 				|if y > 10 then
-				|  x = x + 1
+				|  x = x + 10
 				|else
-				|  x = x - 1
-//				|while x < 20 do
-//				|  x = x + 2
-//				|repeat
-//				|  y = y + 3
-//				|until y >= 30
+				|  x = x - 10
+				|while x < 20 do
+				|  x = x + 2
+				|repeat
+				|  x = x + 3
+				|until x >= 30
 	 			|x
 			""".stripMargin
 		)

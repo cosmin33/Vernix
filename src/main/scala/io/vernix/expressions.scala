@@ -67,7 +67,7 @@ trait Expr[A]:
 	def *>[B](that: Expr[B]): Expr[B] = new Expr[B]:
 		def apply[F[_]: Ops]: F[B] = Ops[F].*>(self[F], that[F])
 	def prg: Program[A] = new Program[A]:
-		def apply[F[_]: Statements]: F[A] = self[F]
+		def apply[F[_]: {Ops, Statements}]: F[A] = self[F]
 object Expr:
 	def value[A: Type](v: A): Expr[A] = new Expr[A]:
 		def apply[F[_]: Ops]: F[A] = Ops[F].value(v)

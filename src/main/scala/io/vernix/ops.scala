@@ -1,11 +1,11 @@
 package io.vernix
 
+import cats.data.State
+import cats.implicits.*
 import cats.{Apply, Monad}
+import zio.*
 
 import scala.util.Try
-import zio.*
-import cats.data.*
-import cats.implicits.*
 
 trait Ops[F[_]]:
 	def typeK: TypeK[F]
@@ -21,9 +21,9 @@ trait Ops[F[_]]:
 	def concat(l: F[String], r: F[String]): F[String]
 	def len(fa:F[String]): F[Int]
 	def toDouble(fa: F[Int]): F[Double]
-	def repeatUntil[A](action: F[A])(condition: F[Boolean]): F[A]
-	def whileDo[A](condition: F[Boolean])(action: F[A]): F[Unit]
-	def ifElse[A](cond: F[Boolean])(ifTrue: F[A], ifFalse: F[A]): F[A]
+	def repeatUntil[A](action: => F[A])(condition: => F[Boolean]): F[A]
+	def whileDo[A](condition: => F[Boolean])(action: => F[A]): F[Unit]
+	def ifElse[A](cond: F[Boolean])(ifTrue: => F[A], ifFalse: => F[A]): F[A]
 	def and(l: F[Boolean], r: F[Boolean]): F[Boolean]
 	def or(l: F[Boolean], r: F[Boolean]): F[Boolean]
 	def not(a: F[Boolean]): F[Boolean]
@@ -35,8 +35,6 @@ trait Ops[F[_]]:
 	def >=[A: {Type, Ordering}](l: F[A], r: F[A]): F[Boolean]
 	def leftEntuple[A, T <: NonEmptyTuple](a: F[A], t: F[T]): F[A *: T]
 	def rightEntuple[T <: NonEmptyTuple, A](t: F[T], a: F[A]): F[Tuple.Append[T, A]]
-	//def size[L[x] <: IterableOnce[x], A](fa:F[L[A]]): F[Int]
-	//def merge[A, B, C](fa: F[A])(left: F[MappingFunc[A, C]], right: F[MappingFunc[B, C]]): F[(B, C)]
 	def *>[A, B](l: F[A], r: F[B]): F[B]
 object Ops:
 	def apply[F[_]](using ops: Ops[F]): Ops[F] = ops
@@ -57,14 +55,14 @@ object Ops:
 			def len(fa:F[String]): F[Int] = fa.map(_.length)
 			def toDouble(fa: F[Int]): F[Double] = fa.map(_.toDouble)
 			def concat(l: F[String], r: F[String]): F[String] = Apply[F].map2(l, r)(_ + _)
-			def repeatUntil[A](action: F[A])(condition: F[Boolean]): F[A] =
+			def repeatUntil[A](action: => F[A])(condition: => F[Boolean]): F[A] =
 				Monad[F].flatMap(action)(a => Monad[F].flatMap(condition)(
 					if _ then Monad[F].pure(a)
 					else repeatUntil(action)(condition)
 				))
-			def whileDo[A](condition: F[Boolean])(action: F[A]): F[Unit] =
+			def whileDo[A](condition: => F[Boolean])(action: => F[A]): F[Unit] =
 				Monad[F].flatMap(condition)(if _ then Monad[F].pure(()) else Monad[F].flatMap(action)(_ => whileDo(condition)(action)))
-			def ifElse[A](cond: F[Boolean])(ifTrue: F[A], ifFalse: F[A]): F[A] =
+			def ifElse[A](cond: F[Boolean])(ifTrue: => F[A], ifFalse: => F[A]): F[A] =
 				Monad[F].flatMap(cond)(if _ then ifTrue else ifFalse)
 			def and(l: F[Boolean], r: F[Boolean]): F[Boolean] = Apply[F].map2(l, r)(_ && _)
 			def or(l: F[Boolean], r: F[Boolean]): F[Boolean] = Apply[F].map2(l, r)(_ || _)
@@ -95,14 +93,14 @@ object Ops:
 			def len(fa: Task[String]): Task[Int] = fa.map(_.length)
 			def toDouble(fa: Task[Int]): Task[Double] = fa.map(_.toDouble)
 			def concat(l: Task[String], r: Task[String]): Task[String] = l.zipWith(r)(_ + _)
-			def repeatUntil[A](action: Task[A])(condition: Task[Boolean]): Task[A] =
+			def repeatUntil[A](action: => Task[A])(condition: => Task[Boolean]): Task[A] =
 				action.flatMap(a => condition.flatMap(
 					if _ then ZIO.succeed(a)
 					else repeatUntil(action)(condition)
 				))
-			def whileDo[A](condition: Task[Boolean])(action: Task[A]): Task[Unit] =
+			def whileDo[A](condition: => Task[Boolean])(action: => Task[A]): Task[Unit] =
 				condition.flatMap(ZIO.unlessDiscard(_)(action *> whileDo(condition)(action)))
-			def ifElse[A](cond: Task[Boolean])(ifTrue: Task[A], ifFalse: Task[A]): Task[A] =
+			def ifElse[A](cond: Task[Boolean])(ifTrue: => Task[A], ifFalse: => Task[A]): Task[A] =
 				cond.flatMap(if _ then ifTrue else ifFalse)
 			def and(l: Task[Boolean], r: Task[Boolean]): Task[Boolean] = l.zipWith(r)(_ && _)
 			def or(l: Task[Boolean], r: Task[Boolean]): Task[Boolean] = l.zipWith(r)(_ || _)
@@ -133,11 +131,11 @@ object Ops:
 			def len(fa: Try[String]): Try[Int] = fa.map(_.length)
 			def toDouble(fa: Try[Int]): Try[Double] = fa.map(_.toDouble)
 			def concat(l: Try[String], r: Try[String]): Try[String] = l.flatMap(a => r.map(b => a + b))
-			def repeatUntil[A](action: Try[A])(condition: Try[Boolean]): Try[A] =
+			def repeatUntil[A](action: => Try[A])(condition: => Try[Boolean]): Try[A] =
 				action >>= (a => condition >>= (if _ then Try(a) else repeatUntil(action)(condition)))
-			def whileDo[A](condition: Try[Boolean])(action: Try[A]): Try[Unit] =
-				condition.flatMap(if _ then Try(()) else action.flatMap(_ => whileDo(condition)(action)))
-			def ifElse[A](cond: Try[Boolean])(ifTrue: Try[A], ifFalse: Try[A]): Try[A] =
+			def whileDo[A](condition: => Try[Boolean])(action: => Try[A]): Try[Unit] =
+				condition.flatMap(if _ then action.flatMap(_ => whileDo(condition)(action)) else Try(()))
+			def ifElse[A](cond: Try[Boolean])(ifTrue: => Try[A], ifFalse: => Try[A]): Try[A] =
 				cond.flatMap(if _ then ifTrue else ifFalse)
 			def and(l: Try[Boolean], r: Try[Boolean]): Try[Boolean] = l.flatMap(a => r.map(b => a && b))
 			def or(l: Try[Boolean], r: Try[Boolean]): Try[Boolean] = l.flatMap(a => r.map(b => a || b))
@@ -153,7 +151,7 @@ object Ops:
 				t.flatMap(t => a.map(a => t :* a))
 			def *>[A, B](l: Try[A], r: Try[B]): Try[B] = l.flatMap(_ => r)
 
-	given Statements[[a] =>> String] = new Statements[[a] =>> String]:
+	given Ops[[a] =>> String] = new Ops[[a] =>> String]:
 		val typeK: TypeK[[a] =>> String] = new TypeK[[a] =>> String]:
 			def name: String = "[a] =>> String"
 		def value[A: Type](v: A): String = v.toString
@@ -168,9 +166,9 @@ object Ops:
 		def len(fa: String): String = s"$fa.len"
 		def toDouble(fa: String): String = s"$fa.toDouble"
 		def concat(l: String, r: String): String = s"($l ++ $r)"
-		def repeatUntil[A](action: String)(condition: String): String = s"repeat { $action } until { $condition }"
-		def whileDo[A](condition: String)(action: String): String = s"do { $action } while { $condition }"
-		def ifElse[A](cond: String)(ifTrue: String, ifFalse: String): String = s"if ($cond) { $ifTrue } else { $ifFalse }"
+		def repeatUntil[A](action: => String)(condition: => String): String = s"repeat { $action } until { $condition }"
+		def whileDo[A](condition: => String)(action: => String): String = s"while { $condition } do { $action }"
+		def ifElse[A](cond: String)(ifTrue: => String, ifFalse: => String): String = s"if ($cond) { $ifTrue } else { $ifFalse }"
 		def and(l: String, r: String): String = s"($l && $r)"
 		def or(l: String, r: String): String = s"($l || $r)"
 		def not(a: String): String = s"(!$a)"
@@ -183,16 +181,8 @@ object Ops:
 		def leftEntuple[A, T <: NonEmptyTuple](a: String, t: String): String = s"($a, $t)"
 		def rightEntuple[T <: NonEmptyTuple, A](t: String, a: String): String = s"($t, $a)"
 		def *>[A, B](l: String, r: String): String = s"$l\n$r"
-		def variable[A: Type](name: String): String = s"$name"
-		def addVar[A: Type](name: String, value: String): String = s"var $name: ${Type[A].name} = $value"
-		def setVar[A: Type](name: String, value: String): String = s"$name = $value"
-		def nest[A](fa: String): String = s"{$fa}"
-		def funDef[A: Type, B: Type](name: String, param: String, body: String): String =
-			s"def $name($param: ${Type[A].name}): ${Type[B].name} = $body"
-		def funCall[A: Type, B: Type](name: String, param: String): String =
-			s"$name($param)"
 
-	given Statements[Type] = new Statements[Type]:
+	given Ops[Type] = new Ops[Type]:
 		val typeK: TypeK[Type] = new TypeK[Type]:
 			def name: String = "Type"
 		def value[A: Type](v: A): Type[A] = Type[A]
@@ -207,9 +197,9 @@ object Ops:
 		def len(fa: Type[String]): Type[Int] = Type[Int]
 		def toDouble(fa: Type[Int]): Type[Double] = Type[Double]
 		def concat(l: Type[String], r: Type[String]): Type[String] = Type[String]
-		def repeatUntil[A](action: Type[A])(condition: Type[Boolean]): Type[A] = action
-		def whileDo[A](condition: Type[Boolean])(action: Type[A]): Type[Unit] = Type[Unit]
-		def ifElse[A](cond: Type[Boolean])(ifTrue: Type[A], ifFalse: Type[A]): Type[A] = ifTrue
+		def repeatUntil[A](action: => Type[A])(condition: => Type[Boolean]): Type[A] = action
+		def whileDo[A](condition: => Type[Boolean])(action: => Type[A]): Type[Unit] = Type[Unit]
+		def ifElse[A](cond: Type[Boolean])(ifTrue: => Type[A], ifFalse: => Type[A]): Type[A] = ifTrue
 		def and(l: Type[Boolean], r: Type[Boolean]): Type[Boolean] = Type[Boolean]
 		def or(l: Type[Boolean], r: Type[Boolean]): Type[Boolean] = Type[Boolean]
 		def not(a: Type[Boolean]): Type[Boolean] = Type[Boolean]
@@ -224,13 +214,6 @@ object Ops:
 		def rightEntuple[T <: NonEmptyTuple, A](t: Type[T], a: Type[A]): Type[Tuple.Append[T, A]] =
 			Type.TupRightType[T, A](using t, a)
 		def *>[A, B](l: Type[A], r: Type[B]): Type[B] = r
-		// Statements[Type] specific
-		def variable[A: Type](name: String): Type[A] = Type[A]
-		def addVar[A: Type](name: String, value: Type[A]): Type[A] = value
-		def setVar[A: Type](name: String, value: Type[A]): Type[A] = value
-		def nest[A](fa: Type[A]): Type[A] = fa
-		def funDef[A: Type, B: Type](name: String, param: String, body: Type[B]): Type[Unit] = Type[Unit]
-		def funCall[A: Type, B: Type](name: String, param: Type[A]): 	Type[B] = Type[B]
 
 	type IdentState[A] = State[Int, String]
 	extension (s: State[Int, String])
@@ -238,7 +221,7 @@ object Ops:
 	extension(s: String)
 		def ident(n: Int): String = (" " * n) + s
 
-	given Statements[IdentState] = new Statements[IdentState]:
+	given Ops[IdentState] = new Ops[IdentState]:
 		val typeK: TypeK[IdentState] = new TypeK[IdentState]:
 			def name: String = "IdentState"
 		def value[A: Type](v: A): IdentState[String] = State.pure(v.toString).ident
@@ -250,9 +233,9 @@ object Ops:
 			l.flatMap(l => r.map(r => s"($l * $r)"))
 		def div[N: {Type, Fractional}](l: IdentState[N], r: IdentState[N]): IdentState[N] =
 			l.flatMap(l => r.map(r => s"($l / $r)"))
-		def quot[N: {Type, Integral}](l: IdentState[N], r: IdentState[N]): IdentState[N] = 
+		def quot[N: {Type, Integral}](l: IdentState[N], r: IdentState[N]): IdentState[N] =
 			l.flatMap(l => r.map(r => s"($l / $r)"))
-		def mod[N: {Type, Integral}](l: IdentState[N], r: IdentState[N]): IdentState[N] = 
+		def mod[N: {Type, Integral}](l: IdentState[N], r: IdentState[N]): IdentState[N] =
 			l.flatMap(l => r.map(r => s"($l % $r)"))
 		def neg[N: {Type, Numeric}](a: IdentState[N]): IdentState[N] =
 			a.map(a => s"(-$a)")
@@ -264,19 +247,19 @@ object Ops:
 			fa.map(v => s"$v.toDouble")
 		def concat(l: IdentState[String], r: IdentState[String]): IdentState[String] =
 			l.flatMap(l => r.map(r => s"($l ++ $r)"))
-		def repeatUntil[A](action: IdentState[String])(condition: IdentState[String]): IdentState[String] =
+		def repeatUntil[A](action: => IdentState[String])(condition: => IdentState[String]): IdentState[String] =
 			State { i =>
 				val act = action.runA(i + 2).value
 				val cond = condition.runA(i + 2).value
 				i -> ("repeat {" + "\n" + act.ident(i + 2) + "} until {".ident(i + 2) + "\n" + cond.ident(i + 2) + "}".ident(i))
 			}
-		def whileDo[A](condition: IdentState[String])(action: IdentState[String]): IdentState[String] =
+		def whileDo[A](condition: => IdentState[String])(action: => IdentState[String]): IdentState[String] =
 			State { i =>
 				val act = action.runA(i + 2).value
 				val cond = condition.runA(i + 2).value
 				i -> ("do {" + "\n" + act.ident(i + 2) + "} while {".ident(i) + "\n" + cond.ident(i + 2) + "}".ident(i))
 			}
-		def ifElse[A](cond: IdentState[String])(ifTrue: IdentState[String], ifFalse: IdentState[String]): IdentState[String] =
+		def ifElse[A](cond: IdentState[String])(ifTrue: => IdentState[String], ifFalse: => IdentState[String]): IdentState[String] =
 			State { i =>
 				val cnd = cond.runA(i).value
 				val ift = ifTrue.runA(i + 2).value
@@ -307,21 +290,6 @@ object Ops:
 			State(id => id -> s"(${t.runA(id).value}, ${a.runA(id).value})")
 		def *>[A, B](l: IdentState[String], r: IdentState[String]): IdentState[String] =
 			State(id => id -> (l.runA(id).value + "\n" + r.runA(id).value.ident(id)))
-		// Statements[IdentState] specific
-		def variable[A: Type](name: String): IdentState[A] = State.pure(s"$name")
-		def addVar[A: Type](name: String, value: IdentState[A]): IdentState[A] =
-			value.map(v => s"var $name: ${Type[A].name} = $v")
-		def setVar[A: Type](name: String, value: IdentState[A]): IdentState[A] =
-			value.map(v => s"$name = $v")
-		def nest[A](fa: IdentState[A]): IdentState[A] =
-			State(i => i -> ("{" + "\n" + fa.runA(i + 2).value.ident(i) + "\n" + "}".ident(i)))
-		def funDef[A: Type, B: Type](name: String, param: String, body: IdentState[B]): IdentState[Unit] =
-			State { i =>
-				val b = body.runA(i + 2).value
-				i -> (s"def $name($param: ${Type[A].name}): ${Type[B].name} {" + "\n" + b.ident(i + 2) + "\n" + "}".ident(i))
-			}
-		def funCall[A: Type, B: Type](name: String, param: IdentState[A]): IdentState[B] =
-			param.map(p => s"$name($p)")
-
+		
 
 end Ops
