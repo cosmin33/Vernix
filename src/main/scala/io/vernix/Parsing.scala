@@ -139,11 +139,11 @@ object Parsing {
 
 		def statement[$: P]: P[Prog] = P(ifStmt | repeatUntil | whileDo | letStmt | assignStmt | andOr)
 
-		def block[$: P]: P[Prog] = P("{" ~ statement ~ (Semi ~~ statement).rep ~ "}").map:
+		def block[$: P]: P[Prog] = P("{" ~ statement ~ (Semi.? ~ statement).rep ~ "}").map:
 			case (first: Prog, rest: Seq[Prog]) =>
 				rest.foldLeft(first)((acc, p) => acc.program.*>(p.program).prog(using p.`type`))
 
-		def prog[$: P]: P[Prog] = P(Newline.? ~ statement ~ statement.rep ~ End).map:
+		def prog[$: P]: P[Prog] = P(Semi.? ~ statement ~ (Semi.? ~ statement).rep ~ End).map:
 			case (first: Prog, rest: Seq[Prog]) =>
 				rest.foldLeft(first)((acc, p) => acc.program.*>(p.program).prog(using p.`type`))
 
@@ -173,13 +173,9 @@ object Parsing {
 		)
 		parseRun(
 			"""
-				var x = 2 + 3 * 4
-				var y = x - 5 / 2
+				var x = {2 + 3 * 4}; var y = x - 5 / 2
 				x = x - 10
-				if y > 10 then
-				  x = x + 10
-				else
-				  x = x - 10
+				if y > 10 then x = x + 10 else x = x - 10
 				while x < 20 do
 				  x = x + 2
 				repeat
