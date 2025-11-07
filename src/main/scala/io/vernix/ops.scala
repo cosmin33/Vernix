@@ -3,9 +3,6 @@ package io.vernix
 import cats.data.State
 import cats.implicits.*
 import cats.{Apply, Monad}
-import zio.*
-
-import scala.util.Try
 
 trait Ops[F[_]]:
 	def typeK: TypeK[F]
@@ -39,7 +36,7 @@ trait Ops[F[_]]:
 object Ops:
 	def apply[F[_]](using ops: Ops[F]): Ops[F] = ops
 
-	def opsF[F[_]: Monad]: Ops[F] =
+	given[F[_]: Monad]: Ops[F] =
 		new Ops[F]:
 			val typeK: TypeK[F] = new TypeK[F]:
 				def name: String = "F: Monad"
@@ -56,14 +53,11 @@ object Ops:
 			def toDouble(fa: F[Int]): F[Double] = fa.map(_.toDouble)
 			def concat(l: F[String], r: F[String]): F[String] = Apply[F].map2(l, r)(_ + _)
 			def repeatUntil[A](action: => F[A])(condition: => F[Boolean]): F[A] =
-				Monad[F].flatMap(action)(a => Monad[F].flatMap(condition)(
-					if _ then Monad[F].pure(a)
-					else repeatUntil(action)(condition)
-				))
+				action >>= (a => condition >>= (if _ then Monad[F].pure(a) else repeatUntil(action)(condition)))
 			def whileDo[A](condition: => F[Boolean])(action: => F[A]): F[Unit] =
-				Monad[F].flatMap(condition)(if _ then Monad[F].pure(()) else Monad[F].flatMap(action)(_ => whileDo(condition)(action)))
+				condition >>= (if _ then Monad[F].pure(()) else action *> whileDo(condition)(action))
 			def ifElse[A](cond: F[Boolean])(ifTrue: => F[A], ifFalse: => F[A]): F[A] =
-				Monad[F].flatMap(cond)(if _ then ifTrue else ifFalse)
+				cond >>= (if _ then ifTrue else ifFalse)
 			def and(l: F[Boolean], r: F[Boolean]): F[Boolean] = Apply[F].map2(l, r)(_ && _)
 			def or(l: F[Boolean], r: F[Boolean]): F[Boolean] = Apply[F].map2(l, r)(_ || _)
 			def not(a: F[Boolean]): F[Boolean] = a.map(!_)
@@ -76,80 +70,6 @@ object Ops:
 			def leftEntuple[A, T <: NonEmptyTuple](a: F[A], t: F[T]): F[A *: T] = Apply[F].map2(a, t)(_ *: _)
 			def rightEntuple[T <: NonEmptyTuple, A](t: F[T], a: F[A]): F[Tuple.Append[T, A]] = Apply[F].map2(t, a)(_ :* _)
 			def *>[A, B](l: F[A], r: F[B]): F[B] = Apply[F].productR(l)(r)
-
-	given Ops[Task] =
-		new Ops[Task]:
-			val typeK: TypeK[Task] = new TypeK[Task]:
-				def name: String = "Task"
-			def value[A: Type](v: A): Task[A] = ZIO.succeed(v)
-			def add[N: {Type, Numeric}](l: Task[N], r: Task[N]): Task[N] = l.zipWith(r)(Numeric[N].plus)
-			def mul[N: {Type, Numeric}](l: Task[N], r: Task[N]): Task[N] = l.zipWith(r)(Numeric[N].times)
-			def sub[N: {Type, Numeric}](l: Task[N], r: Task[N]): Task[N] = l.zipWith(r)(Numeric[N].minus)
-			def div[N: {Type, Fractional}](l: Task[N], r: Task[N]): Task[N] = l.zipWith(r)(Fractional[N].div)
-			def quot[N: {Type, Integral}](l: Task[N], r: Task[N]): Task[N] = l.zipWith(r)(Integral[N].quot)
-			def mod[N: {Type, Integral}](l: Task[N], r: Task[N]): Task[N] = l.zipWith(r)(Integral[N].rem)
-			def neg[N: {Type, Numeric}](a: Task[N]): Task[N] = a.map(Numeric[N].negate)
-			def abs[N: {Type, Numeric}](a: Task[N]): Task[N] = a.map(Numeric[N].abs)
-			def len(fa: Task[String]): Task[Int] = fa.map(_.length)
-			def toDouble(fa: Task[Int]): Task[Double] = fa.map(_.toDouble)
-			def concat(l: Task[String], r: Task[String]): Task[String] = l.zipWith(r)(_ + _)
-			def repeatUntil[A](action: => Task[A])(condition: => Task[Boolean]): Task[A] =
-				action.flatMap(a => condition.flatMap(
-					if _ then ZIO.succeed(a)
-					else repeatUntil(action)(condition)
-				))
-			def whileDo[A](condition: => Task[Boolean])(action: => Task[A]): Task[Unit] =
-				condition.flatMap(ZIO.unlessDiscard(_)(action *> whileDo(condition)(action)))
-			def ifElse[A](cond: Task[Boolean])(ifTrue: => Task[A], ifFalse: => Task[A]): Task[A] =
-				cond.flatMap(if _ then ifTrue else ifFalse)
-			def and(l: Task[Boolean], r: Task[Boolean]): Task[Boolean] = l.zipWith(r)(_ && _)
-			def or(l: Task[Boolean], r: Task[Boolean]): Task[Boolean] = l.zipWith(r)(_ || _)
-			def not(a: Task[Boolean]): Task[Boolean] = a.map(!_)
-			def equals[A: Type](l: Task[A], r: Task[A]): Task[Boolean] = l.zipWith(r)(_ == _)
-			def notEquals[A: Type](l: Task[A], r: Task[A]): Task[Boolean] = l.zipWith(r)(_ != _)
-			def < [A: {Type, Ordering}](l: Task[A], r: Task[A]): Task[Boolean] = l.zipWith(r)(Ordering[A].lt)
-			def <=[A: {Type, Ordering}](l: Task[A], r: Task[A]): Task[Boolean] = l.zipWith(r)(Ordering[A].lteq)
-			def > [A: {Type, Ordering}](l: Task[A], r: Task[A]): Task[Boolean] = l.zipWith(r)(Ordering[A].gt)
-			def >=[A: {Type, Ordering}](l: Task[A], r: Task[A]): Task[Boolean] = l.zipWith(r)(Ordering[A].gteq)
-			def leftEntuple[A, T <: NonEmptyTuple](a: Task[A], t: Task[T]): Task[A *: T] = a.zipWith(t)(_ *: _)
-			def rightEntuple[T <: NonEmptyTuple, A](t: Task[T], a: Task[A]): Task[Tuple.Append[T, A]] = t.zipWith(a)(_ :* _)
-			def *>[A, B](l: Task[A], r: Task[B]): Task[B] = l *> r
-
-	given Ops[Try] =
-		new Ops[Try]:
-			val typeK: TypeK[Try] = new TypeK[Try]:
-				def name: String = "Try"
-			def value[A: Type](v: A): Try[A] = scala.util.Try(v)
-			def add[N: {Type, Numeric}](l: Try[N], r: Try[N]): Try[N] = l.flatMap(a => r.map(b => Numeric[N].plus(a, b)))
-			def sub[N: {Type, Numeric}](l: Try[N], r: Try[N]): Try[N] = l.flatMap(a => r.map(b => Numeric[N].minus(a, b)))
-			def mul[N: {Type, Numeric}](l: Try[N], r: Try[N]): Try[N] = l.flatMap(a => r.map(b => Numeric[N].times(a, b)))
-			def div[N: {Type, Fractional}](l: Try[N], r: Try[N]): Try[N] = l.flatMap(a => r.map(b => Fractional[N].div(a, b)))
-			def quot[N: {Type, Integral}](l: Try[N], r: Try[N]): Try[N] = l.flatMap(a => r.map(b => Integral[N].quot(a, b)))
-			def mod[N: {Type, Integral}](l: Try[N], r: Try[N]): Try[N] = l.flatMap(a => r.map(b => Integral[N].rem(a, b)))
-			def neg[N: {Type, Numeric}](a: Try[N]): Try[N] = a.map(Numeric[N].negate)
-			def abs[N: {Type, Numeric}](a: Try[N]): Try[N] = a.map(Numeric[N].abs)
-			def len(fa: Try[String]): Try[Int] = fa.map(_.length)
-			def toDouble(fa: Try[Int]): Try[Double] = fa.map(_.toDouble)
-			def concat(l: Try[String], r: Try[String]): Try[String] = l.flatMap(a => r.map(b => a + b))
-			def repeatUntil[A](action: => Try[A])(condition: => Try[Boolean]): Try[A] =
-				action >>= (a => condition >>= (if _ then Try(a) else repeatUntil(action)(condition)))
-			def whileDo[A](condition: => Try[Boolean])(action: => Try[A]): Try[Unit] =
-				condition.flatMap(if _ then action.flatMap(_ => whileDo(condition)(action)) else Try(()))
-			def ifElse[A](cond: Try[Boolean])(ifTrue: => Try[A], ifFalse: => Try[A]): Try[A] =
-				cond.flatMap(if _ then ifTrue else ifFalse)
-			def and(l: Try[Boolean], r: Try[Boolean]): Try[Boolean] = l.flatMap(a => r.map(b => a && b))
-			def or(l: Try[Boolean], r: Try[Boolean]): Try[Boolean] = l.flatMap(a => r.map(b => a || b))
-			def not(a: Try[Boolean]): Try[Boolean] = a.map(!_)
-			def equals[A: Type](l: Try[A], r: Try[A]): Try[Boolean] = l.flatMap(a => r.map(b => a == b))
-			def notEquals[A: Type](l: Try[A], r: Try[A]): Try[Boolean] = l.flatMap(a => r.map(b => a != b))
-			def < [A: {Type, Ordering}](l: Try[A], r: Try[A]): Try[Boolean] = l.flatMap(a => r.map(b => Ordering[A].lt(a, b)))
-			def <=[A: {Type, Ordering}](l: Try[A], r: Try[A]): Try[Boolean] = l.flatMap(a => r.map(b => Ordering[A].lteq(a, b)))
-			def > [A: {Type, Ordering}](l: Try[A], r: Try[A]): Try[Boolean] = l.flatMap(a => r.map(b => Ordering[A].gt(a, b)))
-			def >=[A: {Type, Ordering}](l: Try[A], r: Try[A]): Try[Boolean] = l.flatMap(a => r.map(b => Ordering[A].gteq(a, b)))
-			def leftEntuple[A, T <: NonEmptyTuple](a: Try[A], t: Try[T]): Try[A *: T] = a.flatMap(a => t.map(t => a *: t))
-			def rightEntuple[T <: NonEmptyTuple, A](t: Try[T], a: Try[A]): Try[Tuple.Append[T, A]] =
-				t.flatMap(t => a.map(a => t :* a))
-			def *>[A, B](l: Try[A], r: Try[B]): Try[B] = l.flatMap(_ => r)
 
 	given Ops[[a] =>> String] = new Ops[[a] =>> String]:
 		val typeK: TypeK[[a] =>> String] = new TypeK[[a] =>> String]:
