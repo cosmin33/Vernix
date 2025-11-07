@@ -159,11 +159,9 @@ object Parsing {
 		println("-------------------------------")
 		println(r.map(_[[a] =>> String]))
 		println("===============================")
-//		println(r.map(_.compile.map(_.apply[[a] =>> String])))
-		given Statements[Try] = Statements.getStatement(VarHeap.empty)
-		println(r.map(_[Try]))
+		println(r.map(_.apply[[a] =>> String]))
 		println("===============================")
-//		println(r.map(_.compile.flatMap(_.apply[Try])))
+		println(r.map(_.execute[Try](VarHeap.empty)))
 		println("-------------------------------")
 	}
 
@@ -175,20 +173,20 @@ object Parsing {
 		)
 		parseRun(
 			"""
-				|var x = 2 + 3 * 4
-				|var y = x - 5 / 2
-				|x = x - 10
-				|if y > 10 then
-				|  x = x + 10
-				|else
-				|  x = x - 10
-				|while x < 20 do
-				|  x = x + 2
-				|repeat
-				|  x = x + 3
-				|until x >= 30
-	 			|x
-			""".stripMargin
+				var x = 2 + 3 * 4
+				var y = x - 5 / 2
+				x = x - 10
+				if y > 10 then
+				  x = x + 10
+				else
+				  x = x - 10
+				while x < 20 do
+				  x = x + 2
+				repeat
+				  x = x + 3
+				until x >= 30
+	 			x
+			"""
 		)
 	}
 

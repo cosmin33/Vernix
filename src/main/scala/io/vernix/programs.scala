@@ -1,6 +1,6 @@
 package io.vernix
 
-import cats.Eval
+import cats.{Eval, MonadThrow}
 import cats.data.State
 
 import scala.util.Try
@@ -8,6 +8,9 @@ import scala.util.Try
 trait Program[A]:
 	self =>
 	def apply[F[_]: {Ops, Statements}]: F[A]
+	def execute[F[_]: {Ops, MonadThrow}](initHeap: VarHeap = VarHeap.empty): F[A] =
+		given Statements[F] = Statements.getStatement(initHeap)
+		apply
 
 	def len(using e: A =:= String): Program[Int] = new Program[Int]:
 		def apply[F[_]: {Ops, Statements}]: F[Int] = Ops[F].len(e.substituteCo(self[F]))
