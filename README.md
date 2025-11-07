@@ -15,7 +15,7 @@ sbt "runMain io.vernix.Parsing"
 
 Parse and execute a simple program:
 ```scala
-import io.vernix.Parsing
+import io.vernix.{Parsing, VarHeap}
 import scala.util.Try
 
 val source = """

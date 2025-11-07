@@ -331,7 +331,7 @@ sbt "runMain io.vernix.Parsing"
 ### Programmatically
 
 ```scala
-import io.vernix.Parsing
+import io.vernix.{Parsing, VarHeap}
 import scala.util.Try
 
 // Parse a program
@@ -391,7 +391,7 @@ This allows the parser to work with heterogeneous program types while maintainin
 Current parser limitations:
 
 1. **String literals**: Not yet implemented in the parser (type system supports strings)
-2. **Function definitions**: Parser has `funDef` keyword but function parsing is incomplete
+2. **Function definitions**: The `def` keyword is defined but function parsing is not yet implemented
 3. **Comments**: No support for code comments
 4. **Arrays/Collections**: Not supported in the parser
 5. **Import statements**: No module/import system
