@@ -5,6 +5,8 @@ import fastparse.*
 import fastparse.ScalaWhitespace.*
 import zio.interop.catz.*
 import Prog.prog
+import cats.Eval
+import cats.data.EitherT
 
 object Parsing {
 
@@ -141,7 +143,7 @@ object Parsing {
 
 		def block[$: P]: P[Prog] = P("{" ~ statement ~ (Semi.? ~ statement).rep ~ "}").map:
 			case (first: Prog, rest: Seq[Prog]) =>
-				rest.foldLeft(first)((acc, p) => acc.program.*>(p.program).prog(using p.`type`))
+				rest.foldLeft(first)((acc, p) => acc.program.*>(p.program).prog(using p.`type`)).nest
 
 		def prog[$: P]: P[Prog] = P(Semi.? ~ statement ~ (Semi.? ~ statement).rep ~ End).map:
 			case (first: Prog, rest: Seq[Prog]) =>
@@ -154,21 +156,21 @@ object Parsing {
 			case s @ Parsed.Success(value, index) => Right(value)
 	}
 
+	type EvalErr[A] = EitherT[Eval, Throwable, A]
+
 	def parseRun(s: String): Unit = {
 		val r = parseUnknown(s)
 		println("-------------------------------")
 		println(r.map(_[[a] =>> String]))
 		println("===============================")
-		println(r.map(_.apply[[a] =>> String]))
-		println("===============================")
-		println(r.map(_.execute[Try](VarHeap.empty)))
+		println(r.map(_.execute[EvalErr]().value.value))
 		println("-------------------------------")
 	}
 
 	def main(args: Array[String]): Unit = {
 		parseRun(
-			"""var x = 2 + 3 * 4
-				|var y = x - 5 / 2
+			"""var x = 1
+				|x
 				|""".stripMargin
 		)
 		parseRun(
@@ -184,6 +186,21 @@ object Parsing {
 	 			x
 			"""
 		)
+		parseRun(
+			"""
+				|var x = {var y = 1; y + 1}
+				|x = x + 2
+				|x
+				|""".stripMargin
+		)
+		parseRun(
+			"""var x = 1
+				|while x < 10 do
+				|  x = x + 1
+				|x
+				|""".stripMargin
+		)
+
 	}
 
 }

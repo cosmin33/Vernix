@@ -55,7 +55,3 @@ object Type:
 	given OptionType[A: Type]: Type[Option[A]] = new Type[Option[A]]:
 		override def name: String = s"Option[${Type[A].name}]"
 end Type
-
-trait TypeK[F[_]]:
-	def name: String
-	type TypeOf[a] = F[a]

@@ -5,7 +5,6 @@ import cats.implicits.*
 import cats.{Apply, Monad}
 
 trait Ops[F[_]]:
-	def typeK: TypeK[F]
 	def value[A: Type](v: A): F[A]
 	def add[N: {Type, Numeric}](l: F[N], r: F[N]): F[N]
 	def sub[N: {Type, Numeric}](l: F[N], r: F[N]): F[N]
@@ -38,8 +37,6 @@ object Ops:
 
 	given[F[_]: Monad]: Ops[F] =
 		new Ops[F]:
-			val typeK: TypeK[F] = new TypeK[F]:
-				def name: String = "F: Monad"
 			def value[A: Type](v: A): F[A] = Monad[F].pure(v)
 			def add[N: {Type, Numeric}](l: F[N], r: F[N]): F[N] = Apply[F].map2(l, r)(Numeric[N].plus)
 			def sub[N: {Type, Numeric}](l: F[N], r: F[N]): F[N] = Apply[F].map2(l, r)(Numeric[N].minus)
@@ -55,7 +52,7 @@ object Ops:
 			def repeatUntil[A](action: => F[A])(condition: => F[Boolean]): F[A] =
 				action >>= (a => condition >>= (if _ then Monad[F].pure(a) else repeatUntil(action)(condition)))
 			def whileDo[A](condition: => F[Boolean])(action: => F[A]): F[Unit] =
-				condition >>= (if _ then Monad[F].pure(()) else action *> whileDo(condition)(action))
+				condition >>= (if _ then action *> whileDo(condition)(action) else Monad[F].pure(()))
 			def ifElse[A](cond: F[Boolean])(ifTrue: => F[A], ifFalse: => F[A]): F[A] =
 				cond >>= (if _ then ifTrue else ifFalse)
 			def and(l: F[Boolean], r: F[Boolean]): F[Boolean] = Apply[F].map2(l, r)(_ && _)
@@ -72,8 +69,6 @@ object Ops:
 			def *>[A, B](l: F[A], r: F[B]): F[B] = Apply[F].productR(l)(r)
 
 	given Ops[[a] =>> String] = new Ops[[a] =>> String]:
-		val typeK: TypeK[[a] =>> String] = new TypeK[[a] =>> String]:
-			def name: String = "[a] =>> String"
 		def value[A: Type](v: A): String = v.toString
 		def add[N: {Type, Numeric}](l: String, r: String): String = s"($l + $r)"
 		def sub[N: {Type, Numeric}](l: String, r: String): String = s"($l - $r)"
@@ -103,8 +98,6 @@ object Ops:
 		def *>[A, B](l: String, r: String): String = s"$l\n$r"
 
 	given Ops[Type] = new Ops[Type]:
-		val typeK: TypeK[Type] = new TypeK[Type]:
-			def name: String = "Type"
 		def value[A: Type](v: A): Type[A] = Type[A]
 		def add[N: {Type, Numeric}](l: Type[N], r: Type[N]): Type[N] = Type[N]
 		def sub[N: {Type, Numeric}](l: Type[N], r: Type[N]): Type[N] = Type[N]
@@ -142,8 +135,6 @@ object Ops:
 		def ident(n: Int): String = (" " * n) + s
 
 	given Ops[IdentState] = new Ops[IdentState]:
-		val typeK: TypeK[IdentState] = new TypeK[IdentState]:
-			def name: String = "IdentState"
 		def value[A: Type](v: A): IdentState[String] = State.pure(v.toString).ident
 		def add[N: {Type, Numeric}](l: IdentState[N], r: IdentState[N]): IdentState[N] =
 			l.flatMap(l => r.map(r => s"($l + $r)"))

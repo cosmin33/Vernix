@@ -1,7 +1,5 @@
 package io.vernix
 
-import scala.compiletime.uninitialized
-
 trait Expr[A]:
 	self =>
 	def apply[F[_]: Ops]: F[A]
@@ -53,17 +51,6 @@ trait Expr[A]:
 		def apply[F[_]: Ops]: F[A *: T] = Ops[F].leftEntuple(self[F], t[F])
 	def rightEntuple[T <: NonEmptyTuple](t: Expr[T]): Expr[Tuple.Append[T, A]] = new Expr[Tuple.Append[T, A]]:
 		def apply[F[_]: Ops]: F[Tuple.Append[T, A]] = Ops[F].rightEntuple(t[F], self[F])
-	def memoize: Expr[A] = new Expr[A]:
-		@volatile var last: Any = uninitialized
-		@volatile var lastType: String = ""
-		def apply[F[_]: Ops]: F[A] =
-			synchronized:
-				if (lastType == Ops[F].typeK.name)
-					last.asInstanceOf[F[A]]
-				else
-					lastType = Ops[F].typeK.name
-					last = self[F]
-					last.asInstanceOf[F[A]]
 	def *>[B](that: Expr[B]): Expr[B] = new Expr[B]:
 		def apply[F[_]: Ops]: F[B] = Ops[F].*>(self[F], that[F])
 	def prg: Program[A] = new Program[A]:

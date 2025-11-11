@@ -86,7 +86,7 @@ object VarHeap:
 					if head.contains(name) then
 						throw new IllegalArgumentException(s"Variable $name already exists in the current scope")
 					else
-						head(name) = Value(Type[A].name, value)
+						head.addOne(name, Value(Type[A].name, value))
 		def setVariable[A: Type](name: String, value: A): Unit =
 			var these = self
 			while these.nonEmpty do

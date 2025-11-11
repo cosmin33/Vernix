@@ -9,6 +9,7 @@ object ParsingOps:
 			case (Type.DoubleType, Type.DoubleType) => (l.unsafe[Double] + r.unsafe[Double]).prog
 			case (Type.IntType, Type.DoubleType) => (l.unsafe[Int].toDouble + r.unsafe[Double]).prog
 			case (Type.DoubleType, Type.IntType) => (l.unsafe[Double] + r.unsafe[Int].toDouble).prog
+			case (Type.StringType, Type.StringType) => (l.unsafe[String] ++ r.unsafe[String]).prog
 			case _ => throw new Exception(s"Cannot add types ${l.`type`.name} and ${r.`type`.name}")
 
 	def op_-(l: Prog, r: Prog): Prog =

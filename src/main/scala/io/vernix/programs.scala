@@ -1,6 +1,6 @@
 package io.vernix
 
-import cats.{Eval, MonadThrow}
+import cats.{Defer, Eval, MonadThrow}
 import cats.data.State
 
 import scala.util.Try
@@ -8,7 +8,7 @@ import scala.util.Try
 trait Program[A]:
 	self =>
 	def apply[F[_]: {Ops, Statements}]: F[A]
-	def execute[F[_]: {Ops, MonadThrow}](initHeap: VarHeap = VarHeap.empty): F[A] =
+	def execute[F[_]: {Ops, MonadThrow, Defer}](initHeap: VarHeap = VarHeap.empty): F[A] =
 		given Statements[F] = Statements.getStatement(initHeap)
 		apply
 
@@ -60,6 +60,8 @@ trait Program[A]:
 		def apply[F[_]: {Ops, Statements}]: F[A *: T] = Ops[F].leftEntuple(self[F], t[F])
 	def rightEntuple[T <: NonEmptyTuple](t: Program[T]): Program[Tuple.Append[T, A]] = new Program[Tuple.Append[T, A]]:
 		def apply[F[_]: {Ops, Statements}]: F[Tuple.Append[T, A]] = Ops[F].rightEntuple(t[F], self[F])
+	def nest: Program[A] = new Program[A]:
+		def apply[F[_]: {Ops, Statements}]: F[A] = Statements[F].nest(self[F])
 	def *>[B](that: Program[B]): Program[B] = new Program[B]:
 		def apply[F[_]: {Ops, Statements}]: F[B] = Ops[F].*>(self[F], that[F])
 object Program:
@@ -72,8 +74,6 @@ object Program:
 		def apply[F[_]: {Ops, Statements}]: F[Unit] = Statements[F].addVar[A](name, value[F])
 	def setVar[A: Type](name: String, value: Program[A]): Program[Unit] = new Program[Unit]:
 		def apply[F[_]: {Ops, Statements}]: F[Unit] = Statements[F].setVar[A](name, value[F])
-	def nest[A: Type](fa: Program[A]): Program[A] = new Program[A]:
-		def apply[F[_]: {Ops, Statements}]: F[A] = Statements[F].nest(fa[F])
 	def whileDo[A](condition: Program[Boolean])(action: Program[A]): Program[Unit] = new Program[Unit]:
 		def apply[F[_]: {Ops, Statements}]: F[Unit] = Ops[F].whileDo(condition[F])(action[F])
 	def repeatUntil[A](action: Program[A])(condition: Program[Boolean]): Program[A] = new Program[A]:
@@ -83,6 +83,7 @@ object Program:
 end Program
 
 trait Prog:
+	self =>
 	type T
 	def `type`: Type[T]
 	def program: Program[T]
@@ -90,6 +91,10 @@ trait Prog:
 	def unsafe[A: Type]: Program[A] =
 		if (Type[A].name == `type`.name) program.asInstanceOf[Program[A]]
 		else throw new ClassCastException(s"Program is of type ${`type`.name}, not ${Type[A].name}")
+	def nest: Prog = new Prog:
+		type T = self.T
+		val `type`: Type[T] = self.`type`
+		val program: Program[T] = self.program.nest
 object Prog:
 	type Aux[A] = Prog { type T = A }
 	def apply[A: Type](p: Program[A]): Prog.Aux[A] = new Prog:
