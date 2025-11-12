@@ -3,6 +3,7 @@ package io.vernix
 import zio.*
 import zio.test.*
 import zio.test.Assertion.*
+import Program.*
 
 object TypeSpec extends ZIOSpecDefault {
   def spec = suite("Type System")(
@@ -70,32 +71,32 @@ object TypeSpec extends ZIOSpecDefault {
     ),
     suite("Type Inference in Program")(
       test("Program with Int value has Int type") {
-        val program = Program.value(42)
+        val program = value(42)
         val tpe = program.apply[Type]
         assertTrue(tpe.name == "Int")
       },
       test("Program with String value has String type") {
-        val program = Program.value("Hello")
+        val program = value("Hello")
         val tpe = program.apply[Type]
         assertTrue(tpe.name == "String")
       },
       test("Program with Boolean value has Boolean type") {
-        val program = Program.value(true)
+        val program = value(true)
         val tpe = program.apply[Type]
         assertTrue(tpe.name == "Boolean")
       },
       test("Program with arithmetic operation has correct type") {
-        val program = Program.value(10) + Program.value(5)
+        val program = value(10) + value(5)
         val tpe = program.apply[Type]
         assertTrue(tpe.name == "Int")
       },
       test("Program with comparison has Boolean type") {
-        val program = Program.value(10) > Program.value(5)
+        val program = value(10) > value(5)
         val tpe = program.apply[Type]
         assertTrue(tpe.name == "Boolean")
       },
       test("Program with string concatenation has String type") {
-        val program = Program.value("Hello") ++ Program.value("World")
+        val program = value("Hello") ++ value("World")
         val tpe = program.apply[Type]
         assertTrue(tpe.name == "String")
       }
