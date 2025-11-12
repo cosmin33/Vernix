@@ -408,3 +408,19 @@ Potential enhancements for the parser:
 - Comment support
 - Error recovery for better error messages
 - Source location tracking for debugging
+
+## Testing
+
+For comprehensive examples of using the parser and the Vernix DSL, see the test suite in `src/test/scala/io/vernix/`. The test suite includes:
+
+- **ControlFlowSpec.scala**: Examples of if-then-else, while-do, and repeat-until constructs
+- **VariableSpec.scala**: Variable declaration, assignment, and scoping examples
+- **ProgramSpec.scala**: DSL usage examples for all operations
+- **TypeSpec.scala**: Type system behavior and type inference examples
+
+Run the tests with:
+```bash
+sbt test
+```
+
+See the [README](README.md#testing) for more details on the test suite.
