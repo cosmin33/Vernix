@@ -31,9 +31,9 @@ object Statements:
 		def nest[A](fa: F[A]): F[A] = {
 			Defer[F].defer:
 				for {
-					_ <- Defer[F].defer(S.inspect(_.nest()))
+					_ <- Defer[F].defer(S.modify(_.nest()))
 					a <- fa
-					_ <- Defer[F].defer(S.inspect(_.unNest()))
+					_ <- Defer[F].defer(S.modify(_.unNest()))
 				} yield a
 		}
 
