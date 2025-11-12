@@ -40,18 +40,18 @@ You can also create programs directly using the embedded DSL:
 
 ```scala
 import io.vernix.Program.*
-import scala.util.Try
+import zio.*
 
 // Simple arithmetic
 val program1 = value(2) + value(3) * value(4)
-program1.execute[Try]() // Success(14)
+// Evaluate with ZIO: 14
 
 // With variables
 val program2 = 
   addVar("x", value(10)) *>
   addVar("y", value(20)) *>
   (variable[Int]("x") + variable[Int]("y"))
-program2.execute[Try]() // Success(30)
+// Evaluate with ZIO: 30
 
 // With control flow
 val program3 = 
@@ -60,7 +60,13 @@ val program3 =
     setVar("x", variable[Int]("x") + value(1))
   ) *>
   variable[Int]("x")
-program3.execute[Try]() // Success(10)
+// Evaluate with ZIO: 10
+
+// Execute a program
+import zio.interop.catz.*
+Unsafe.unsafe { implicit unsafe =>
+  Runtime.default.unsafe.run(program1.execute[Task]()).getOrThrow()
+}
 ```
 
 ## Features
