@@ -77,7 +77,7 @@ program3.execute[Try]() // Success(10)
   - String: `++` (concatenation), `len`
 - **Type conversions**: `toDouble` for Int to Double conversion
 - **Nested scopes**: Support for nested variable scopes with the `nest` operation
-- **Comprehensive test suite**: 123+ tests covering all major functionality
+- **Comprehensive test suite**: 110+ tests covering all major functionality
 
 ## Project Structure
 
@@ -112,12 +112,12 @@ sbt package
 
 Vernix includes a comprehensive test suite using ZIO Test. The test suite covers:
 
-- **Program DSL operations** (36 tests): Arithmetic, string, boolean, comparison operations, type conversions, and sequencing
+- **Program DSL operations** (27 tests): Arithmetic, string, boolean, comparison operations, type conversions, and sequencing
 - **Variable management** (12 tests): Variable declaration, assignment, scoping, and error handling
 - **Control flow** (11 tests): if-then-else, while-do, repeat-until loops, and complex control flow scenarios
-- **Expression operations** (31 tests): All Expr operations including arithmetic, boolean logic, comparisons, and conversions
+- **Expression operations** (24 tests): All Expr operations including arithmetic, boolean logic, comparisons, and conversions
 - **Type system** (20 tests): Basic types, complex types, nested types, and type inference
-- **VarHeap operations** (13 tests): Variable management and scope management
+- **VarHeap operations** (16 tests): Variable management and scope management
 
 ### Running Tests
 
