@@ -28,14 +28,8 @@ object Statements:
 		def setVar[A: Type](name: String, value: F[A]): F[Unit] =
 			Defer[F].defer:
 				value >>= (v => S.get >>= (vh => MonadThrow[F].catchNonFatal(vh.setVariable[A](name, v))))
-		def nest[A](fa: F[A]): F[A] = {
-			Defer[F].defer:
-				for {
-					_ <- Defer[F].defer(S.modify(_.nest()))
-					a <- fa
-					_ <- Defer[F].defer(S.modify(_.unNest()))
-				} yield a
-		}
+		def nest[A](fa: F[A]): F[A] =
+			Defer[F].defer(S.modify(_.nest())).*>(fa).flatTap(_ => Defer[F].defer(S.modify(_.unNest())))
 
 	def getStatement[F[_]: {MonadThrow, Defer}](initialHeap: VarHeap = VarHeap.empty): Statements[F] =
 		var heap = initialHeap 
