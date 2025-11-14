@@ -43,8 +43,19 @@ object Parsing {
 	private def OpChar[$: P] = P(CharPred(isOpChar))
 
 	def parseUnknown(s: String): Either[String, Program[?]] = {
+		var ctx: VarCtx = VarCtx.empty
+		val strToType: Map[String, Type[?]] =
+			Map(
+				"Int"     -> Type.IntType,
+				"Double"  -> Type.DoubleType,
+				"Boolean" -> Type.BooleanType
+			)
+
+		def Fail(msg: String)(implicit ctx: P[?]): P[Nothing] =
+			throw new Exception(s"Parsing failure at index ${ctx.index}: $msg")
+
 		def `let`   [$: P] = W("var")
-		def `funDef`[$: P] = W("def")
+		def `def`   [$: P] = W("def")
 		def `if`    [$: P] = W("if")
 		def `then`  [$: P] = W("then")
 		def `else`  [$: P] = W("else")
@@ -61,36 +72,42 @@ object Parsing {
 		def `true` [$: P]: P[Prog.Aux[Boolean]] = P(W("true")).map(_ => Program.value(true).prog)
 		def `false`[$: P]: P[Prog.Aux[Boolean]] = P(W("false")).map(_ => Program.value(false).prog)
 		def boolean[$: P]: P[Prog.Aux[Boolean]] = P(`true` | `false`)
-		def variable[$: P, T](using Type[T]): P[Prog.Aux[T]] = P(validName).map(name => Program.variable[T](name).prog)
+		def variableName[$: P, T: Type]: P[Prog.Aux[T]] = P(validName).map(name => Program.variable[T](name).prog)
 
 		import ParsingOps.*
 
 		def parens[$: P, T]: P[Prog] = P("(" ~/ andOr ~ ")")
-		def factor[$: P]: P[Prog] = P(`int` | `double` | boolean | parens | block | variableInt)
-		def variableInt[$: P]: P[Prog] = P(validName).map:
+		def factor[$: P]: P[Prog] = P(`int` | `double` | boolean | parens | block | variable | funCall)
+		def variable[$: P]: P[Prog] = P(validName ~ !CharIn("(=")).flatMapX:
 			name =>
-				Program.variable[Int](name).prog
+				ctx.getVariableType(name) match
+					case Some(tpe) =>
+						strToType.get(tpe) match
+							case Some(t) => Pass(Program.variable[t.TypeOf](name)(using t).prog(using t))
+							case None    => Fail(s"Unsupported variable type: $tpe")
+					case None        => Fail(s"Undefined variable: $name")
+
 		def divMul[$: P, T]: P[Prog] =
-			Try(P(factor ~ (CharIn("*/%").! ~/ factor).rep).map {
+			P(factor ~ (CharIn("*/%").! ~/ factor).rep).map {
 				case (left: Prog, ops: Seq[(String, Prog)]) =>
 					ops.foldLeft(left):
 						case (acc, ("*", r)) => op_*(acc, r)
 						case (acc, ("/", r)) => op_/(acc, r)
 						case (acc, ("%", r)) => op_%(acc, r)
 						case _ => throw new Exception("unreachable")
-			}).fold(t => P(Fail(t.getMessage)), identity)
+			}
 
 		def additionSubtraction[$: P]: P[Prog] =
-			Try(P(divMul ~ (CharIn("+\\-").! ~/ divMul).rep).map {
+			P(divMul ~ (CharIn("+\\-").! ~/ divMul).rep).map {
 				case (left: Prog, ops: Seq[(String, Prog)]) =>
 					ops.foldLeft(left):
 						case (acc, ("+", r)) => op_+(acc, r)
 						case (acc, ("-", r)) => op_-(acc, r)
 						case _ => throw new Exception("unreachable")
-			}).fold(t => P(Fail(t.getMessage)), identity)
+			}
 
 		def comparison[$: P]: P[Prog] =
-			Try(P(additionSubtraction ~ (("<=" | "<" | ">=" | ">" | "==" | "!=").! ~/ additionSubtraction).rep).map {
+			P(additionSubtraction ~ (("<=" | "<" | ">=" | ">" | "==" | "!=").! ~/ additionSubtraction).rep).map {
 				case (left: Prog, ops: Seq[(String, Prog)]) =>
 					ops.foldLeft(left):
 						case (acc, ("<", r))  => op_<(acc, r)
@@ -100,50 +117,105 @@ object Parsing {
 						case (acc, ("==", r)) => op_===(acc, r)
 						case (acc, ("!=", r)) => op_!==(acc, r)
 						case _ => throw new Exception("unreachable")
-			}).fold(t => P(Fail(t.getMessage)), identity)
+			}
 
 		def andOr[$: P]: P[Prog] =
-			Try(P(comparison ~ (CharIn("|&").! ~/ comparison).rep).map {
+			P(comparison ~ (CharIn("|&").! ~/ comparison).rep).map {
 				case (left: Prog, ops: Seq[(String, Prog)]) =>
 					ops.foldLeft(left):
 						case (acc, ("&", r)) => op_&(acc, r)
 						case (acc, ("|", r)) => op_|(acc, r)
 						case _ => throw new Exception("unreachable")
-			}).fold(t => P(Fail(t.getMessage)), identity)
+			}
 
 		def letStmt[$: P]: P[Prog] =
-			P(`let` ~ validName ~ "=" ~ statement).map:
+			P(`let` ~ validName ~ "=" ~ statement).flatMap:
 				case (name, value) =>
 					given Type[value.T] = value.`type`
-					Program.addVar(name, value.program).prog
+					Try(ctx.addVariable(name, value.`type`.name)) match
+						case scala.util.Success(_) => Pass(Program.addVar(name, value.program).prog)
+						case scala.util.Failure(ex) => Fail(ex.getMessage)
 
 		def assignStmt[$: P]: P[Prog] =
-			P(validName ~ "=" ~ statement).map:
+			P(validName ~ "=" ~ statement).flatMap:
 				case (name, value) =>
 					given Type[value.T] = value.`type`
-					Program.setVar(name, value.program).prog
+					ctx.getVariableType(name) match
+						case Some(tpe) =>
+							strToType.get(tpe) match
+								case Some(t) if t == value.`type` =>
+									Pass(Program.setVar(name, value.program).prog)
+								case Some(_) => Fail(s"Type mismatch in assignment to $name: expected $tpe, got ${value.`type`.name}")
+								case None    => Fail(s"Unsupported variable type: $tpe")
+						case None    => Fail(s"Undefined variable: $name")
+
+		def funInterface[$: P]: P[(String, String, String)] =
+			P(`def` ~ validName ~ "(" ~ validName ~ ":" ~ validName ~ ")").flatMap:
+				case (funName, argName, argType) =>
+					ctx = ctx.nest()
+					Try(ctx.addVariable(argName, argType)) match
+						case scala.util.Success(_) => Pass((funName, argName, argType))
+						case scala.util.Failure(ex) => Fail(ex.getMessage)
+
+
+		def funDef[$: P]: P[Prog] =
+			P(funInterface ~ "=" ~ statement).flatMap:
+				case (funName, argName, argType, body) =>
+					strToType.get(argType) match
+						case Some(t) =>
+							given Type[body.T] = body.`type`
+							given Type[t.TypeOf] = t
+							Try(ctx.addVariable(funName, s"${argType} => ${body.`type`.name}")) match
+								case scala.util.Success(_) =>
+									Pass(Program.addFunction[t.TypeOf, body.T](funName, argName, body.program).prog)
+								case scala.util.Failure(ex) => Fail(ex.getMessage)
+						case None => Fail(s"Unsupported function argument type: $argType")
+				.flatMap {p => ctx.unNest(); Pass(p)}
+
+		def funCall[$: P]: P[Prog] =
+			P(validName ~ "(" ~ statement ~ ")").flatMap:
+				case (funName, arg) =>
+					ctx.getVariableType(funName) match
+						case Some(tpe) if tpe.contains("=>") =>
+							val Array(argType, returnType) = tpe.split("=>").map(_.trim)
+							strToType.get(argType) match
+								case Some(at) if at == arg.`type` =>
+									strToType.get(returnType) match
+										case Some(rt) =>
+											val a = arg.program.asInstanceOf[Program[at.TypeOf]] // safe due to the type check above
+											P.current.map(_ => Program.callFunction[at.TypeOf, rt.TypeOf](funName, a)(using at, rt).prog(using rt))
+										case None => Fail(s"Unsupported function return type: $returnType")
+								case Some(_) => Fail(s"Function $funName expects argument of type $argType, got ${arg.`type`.name}")
+								case None => Fail(s"Unsupported function argument type: $argType")
+						case Some(_) => Fail(s"$funName is not a function")
+						case None    => Fail(s"Undefined function: $funName")
 
 		def ifStmt[$: P]: P[Prog] =
-			Try(P(`if` ~ statement ~ `then`.? ~ statement ~ `else` ~ statement).map:
+			P(`if` ~ statement ~ `then`.? ~ statement ~ `else` ~ statement).map:
 				case (cond, thenp, elsep) => opIf(cond, thenp, elsep)
-			).fold(t => P(Fail(t.getMessage)), identity)
 
 		def repeatUntil[$: P]: P[Prog] =
-			Try(P(`repeat` ~ statement ~ `until` ~ statement).map:
+			P(`repeat` ~ statement ~ `until` ~ statement).map:
 				case (action, condition) =>
 					Program.repeatUntil(action.program)(condition.unsafe[Boolean]).prog(using action.`type`)
-			).fold(t => P(Fail(t.getMessage)), identity)
 
 		def whileDo[$: P]: P[Prog] =
-			Try(P(`while` ~ statement ~ `do` ~ statement).map:
+			P(`while` ~ statement ~ `do` ~ statement).map:
 				case (condition, action) => Program.whileDo(condition.unsafe[Boolean])(action.program).prog
-			).fold(t => P(Fail(t.getMessage)), identity)
 
-		def statement[$: P]: P[Prog] = P(ifStmt | repeatUntil | whileDo | letStmt | assignStmt | andOr)
+		def statement[$: P]: P[Prog] = P(ifStmt | repeatUntil | whileDo | letStmt | assignStmt | funDef | andOr)
 
-		def block[$: P]: P[Prog] = P("{" ~ statement ~ (Semi.? ~ statement).rep ~ "}").map:
-			case (first: Prog, rest: Seq[Prog]) =>
-				rest.foldLeft(first)((acc, p) => acc.program.*>(p.program).prog(using p.`type`)).nest
+		def doNesting[A](b: => A): A =
+			ctx = ctx.nest()
+			val result = b
+			ctx = ctx.unNest()
+			result
+
+		def block[$: P]: P[Prog] = doNesting(
+			P("{" ~ statement ~ (Semi.? ~ statement).rep ~ "}").map:
+				case (first: Prog, rest: Seq[Prog]) =>
+					rest.foldLeft(first)((acc, p) => acc.program.*>(p.program).prog(using p.`type`)).nest
+		)
 
 		def prog[$: P]: P[Prog] = P(Semi.? ~ statement ~ (Semi.? ~ statement).rep ~ End).map:
 			case (first: Prog, rest: Seq[Prog]) =>
@@ -151,15 +223,16 @@ object Parsing {
 
 		def program[$: P]: P[Program[?]] = prog.map(_.program)
 
-		parse(s, program(using _)) match
-			case f: Parsed.Failure => Left(f.trace().longMsg)
+		Try(parse(s, program(using _), verboseFailures = true) match
+			case f: Parsed.Failure => Left(f.longMsg)
 			case s @ Parsed.Success(value, index) => Right(value)
+		).toEither.left.map(_.getMessage).flatten
 	}
 
 	type EvalErr[A] = EitherT[Eval, Throwable, A]
 
 	def parsePrint(s: String): Unit = {
-		val r = parseUnknown(s)
+		val r: Either[String, Program[?]] = parseUnknown(s)
 		println("-------------------------------")
 		println(r.map(_[[a] =>> String]))
 		println("===============================")
@@ -183,6 +256,8 @@ object Parsing {
 				repeat
 				  x = x + 3
 				until x >= 30
+				def triple(x: Int) = x * 3
+				x = x + triple(5)
 	 			x
 			"""
 		)
@@ -194,7 +269,7 @@ object Parsing {
 				|""".stripMargin
 		)
 		parsePrint(
-			"""var x = 1
+			"""var x = 1d
 				|{
 				|  var x = 2
 				|  x = 3
@@ -202,7 +277,14 @@ object Parsing {
 				|x
 				|""".stripMargin
 		)
-
+		parsePrint(
+			"""
+				|var a = 2 + 3
+				|def triple(a: Int) = a + a + a
+				|a = 1
+				|triple(a)
+				|""".stripMargin
+		)
 	}
 
 }

@@ -42,3 +42,31 @@ object VarHeap:
 					case None => these = these.tail
 			throw new NoSuchElementException(s"Variable $name not found")
 end VarHeap
+
+opaque type VarCtx = List[mutable.Map[String, String]] // variable name -> type name
+object VarCtx:
+	def empty: VarCtx = List(mutable.Map.empty)
+
+	extension(self: VarCtx)
+		def nest(): VarCtx = mutable.Map.empty[String, String] :: self
+		def unNest(): VarCtx =
+			self match
+				case Nil => Nil
+				case list @ _ :: Nil => list
+				case _ :: tail => tail
+		def addVariable(name: String, typeName: String): Unit =
+			self match
+				case Nil => throw new IllegalStateException("No scope to add variable to")
+				case head :: _ =>
+					if head.contains(name) then
+						throw new IllegalArgumentException(s"Variable $name already exists in the current scope")
+					else
+						head.addOne(name, typeName)
+		def getVariableType(name: String): Option[String] =
+			var these = self
+			while these.nonEmpty do
+				these.head.get(name) match
+					case Some(t) => return Some(t)
+					case None => these = these.tail
+			None
+end VarCtx

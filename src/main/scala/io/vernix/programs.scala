@@ -71,6 +71,10 @@ object Program:
 		def apply[F[_]: {Ops, Statements}]: F[Unit] = Statements[F].addVar[A](name, value[F])
 	def setVar[A: Type](name: String, value: Program[A]): Program[Unit] = new Program[Unit]:
 		def apply[F[_]: {Ops, Statements}]: F[Unit] = Statements[F].setVar[A](name, value[F])
+	def addFunction[A: Type, B: Type](name: String, argName: String, body: Program[B]): Program[Unit] = new Program[Unit]:
+		def apply[F[_]: {Ops, Statements}]: F[Unit] = Statements[F].addFunction[A, B](name, argName, body[F])
+	def callFunction[A: Type, B: Type](name: String, arg: Program[A]): Program[B] = new Program[B]:
+		def apply[F[_]: {Ops, Statements}]: F[B] = Statements[F].callFunction[A, B](name, arg[F])
 	def whileDo[A](condition: Program[Boolean])(action: Program[A]): Program[Unit] = new Program[Unit]:
 		def apply[F[_]: {Ops, Statements}]: F[Unit] = Ops[F].whileDo(condition[F])(action[F])
 	def repeatUntil[A](action: Program[A])(condition: Program[Boolean]): Program[A] = new Program[A]:
