@@ -158,7 +158,7 @@ object Parsing {
 
 	type EvalErr[A] = EitherT[Eval, Throwable, A]
 
-	def parseRun(s: String): Unit = {
+	def parsePrint(s: String): Unit = {
 		val r = parseUnknown(s)
 		println("-------------------------------")
 		println(r.map(_[[a] =>> String]))
@@ -168,12 +168,12 @@ object Parsing {
 	}
 
 	def main(args: Array[String]): Unit = {
-		parseRun(
+		parsePrint(
 			"""var x = 1
 				|x
 				|""".stripMargin
 		)
-		parseRun(
+		parsePrint(
 			"""
 				var x = {2 + 3 * 4}; var y = x - 5 / 2
 				x = x - 10
@@ -186,17 +186,19 @@ object Parsing {
 	 			x
 			"""
 		)
-		parseRun(
+		parsePrint(
 			"""
 				|var x = {var y = 1; y + 1}
 				|x = x + 2
 				|x
 				|""".stripMargin
 		)
-		parseRun(
+		parsePrint(
 			"""var x = 1
-				|while x < 10 do
-				|  x = x + 1
+				|{
+				|  var x = 2
+				|  x = 3
+				|}
 				|x
 				|""".stripMargin
 		)

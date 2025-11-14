@@ -1,9 +1,6 @@
 package io.vernix
 
-import cats.{Defer, Eval, MonadThrow}
-import cats.data.State
-
-import scala.util.Try
+import cats.{Defer, MonadThrow}
 
 trait Program[A]:
 	self =>
