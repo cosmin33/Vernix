@@ -23,6 +23,7 @@ The parser supports the following data types:
 - **Double**: Floating-point literals (e.g., `3.14`, `2.0d`, `.5d`)
 - **Boolean**: `true` and `false`
 - **Variables**: Named references to stored values
+- **Functions**: Single-parameter functions with type-safe definitions and calls
 
 ### Literals
 
@@ -177,6 +178,83 @@ Multiple statements can be grouped in blocks using curly braces:
 
 Statements within blocks are separated by semicolons or newlines.
 
+### Functions
+
+#### Function Definition
+
+Functions are defined using the `def` keyword with a single parameter:
+
+```scala
+def functionName(paramName: ParamType) = expression
+```
+
+**Example:**
+```scala
+def double(x: Int) = x * 2
+def square(n: Int) = n * n
+def increment(value: Int) = value + 1
+```
+
+**Supported parameter types:**
+- `Int`: Integer parameters
+- `Double`: Floating-point parameters
+- `Boolean`: Boolean parameters
+
+**Function body:**
+- The function body is a single expression
+- The return type is inferred from the body expression
+- Functions have access to variables defined in the outer scope
+- Function parameters are scoped to the function body
+
+#### Function Calling
+
+Functions are called using parentheses with a single argument:
+
+```scala
+functionName(argument)
+```
+
+**Example:**
+```scala
+def triple(x: Int) = x * 3
+var result = triple(5)  // result = 15
+```
+
+#### Complete Function Example
+
+```scala
+// Define a function
+def addTen(x: Int) = x + 10
+
+// Use the function
+var a = 5
+var b = addTen(a)     // b = 15
+var c = addTen(20)    // c = 30
+
+// Functions can call other expressions
+def complex(n: Int) = n * 2 + 3
+complex(4)            // Returns 11
+```
+
+#### Function Scoping
+
+Functions create a new scope for their parameters:
+
+```scala
+var a = 10
+def addToA(x: Int) = a + x
+a = 20
+addToA(5)  // Returns 25 (uses current value of a)
+```
+
+The function parameter shadows any variable with the same name:
+
+```scala
+var x = 100
+def useParam(x: Int) = x * 2
+useParam(5)  // Returns 10 (uses parameter x, not outer x)
+```
+
 ## Parser API
 
 ### parseUnknown
@@ -264,6 +342,64 @@ x
 **Output:**
 ```
 Right(Success(32))
+```
+
+### Example 3: Functions
+
+**Source Code:**
+```scala
+def triple(x: Int) = x * 3
+var a = 5
+var b = triple(a)
+triple(10)
+```
+
+**Explanation:**
+- Defines a function `triple` that multiplies its argument by 3
+- Declares variable `a` with value 5
+- Declares variable `b` and initializes it to `triple(a)` (equals 15)
+- Calls `triple(10)` and returns the result (equals 30)
+
+**Output:**
+```
+Right(Success(30))
+```
+
+### Example 4: Functions with Control Flow
+
+**Source Code:**
+```scala
+var x = 2 + 3 * 4
+var y = x - 5 / 2
+x = x - 10
+if y > 10 then
+  x = x + 10
+else
+  x = x - 10
+while x < 20 do
+  x = x + 2
+repeat
+  x = x + 3
+until x >= 30
+def triple(x: Int) = x * 3
+x = x + triple(5)
+x
+```
+
+**Execution trace:**
+1. `x = 14` (from `2 + 3 * 4`)
+2. `y = 12` (from `14 - 5 / 2` = `14 - 2`)
+3. `x = 4` (from `14 - 10`)
+4. Since `y > 10` is true, `x = 14` (from `4 + 10`)
+5. While loop: `x` increments by 2 until reaching 20: `14 → 16 → 18 → 20`
+6. Repeat-until: `x` increments by 3 until `>= 30`: `20 → 23 → 26 → 29 → 32`
+7. Defines function `triple`
+8. `x = 47` (from `32 + triple(5)` = `32 + 15`)
+9. Returns `47`
+
+**Output:**
+```
+Right(Success(47))
 ```
 
 ## Operator Precedence
@@ -391,7 +527,7 @@ This allows the parser to work with heterogeneous program types while maintainin
 Current parser limitations:
 
 1. **String literals**: Not yet implemented in the parser (type system supports strings)
-2. **Function definitions**: The `def` keyword is defined but function parsing is not yet implemented
+2. **Multi-parameter functions**: Only single-parameter functions are supported
 3. **Comments**: No support for code comments
 4. **Arrays/Collections**: Not supported in the parser
 5. **Import statements**: No module/import system
@@ -401,8 +537,9 @@ Current parser limitations:
 Potential enhancements for the parser:
 
 - String literal parsing and operations
-- Function definitions and calls
+- Multi-parameter functions
 - Lambda expressions
+- Higher-order functions
 - Pattern matching
 - Collection literals and operations
 - Comment support
