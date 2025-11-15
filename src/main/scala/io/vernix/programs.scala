@@ -1,6 +1,8 @@
 package io.vernix
 
-import cats.{Defer, MonadThrow}
+import cats.data.EitherT
+import cats.{Defer, Eval, MonadThrow}
+import scala.util.Try
 
 trait Program[A]:
 	self =>
@@ -8,6 +10,8 @@ trait Program[A]:
 	def execute[F[_]: {Ops, MonadThrow, Defer}](initHeap: VarHeap = VarHeap.empty): F[A] =
 		given Statements[F] = Statements.getStatement(initHeap)
 		apply
+	def evaluate(initHeap: VarHeap = VarHeap.empty): Either[Throwable, A] =
+		Try(execute[[a] =>> EitherT[Eval, Throwable, a]]().value.value).toEither.flatten
 
 	def len(using e: A =:= String): Program[Int] = new Program[Int]:
 		def apply[F[_]: {Ops, Statements}]: F[Int] = Ops[F].len(e.substituteCo(self[F]))

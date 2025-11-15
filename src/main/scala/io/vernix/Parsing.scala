@@ -1,12 +1,11 @@
 package io.vernix
 
-import scala.util.Try
-import fastparse.*
-import fastparse.ScalaWhitespace.*
-import zio.interop.catz.*
-import Prog.prog
 import cats.Eval
 import cats.data.EitherT
+import fastparse.*
+import fastparse.ScalaWhitespace.*
+import io.vernix.Prog.prog
+import scala.util.Try
 
 object Parsing {
 
@@ -51,7 +50,7 @@ object Parsing {
 				"Boolean" -> Type.BooleanType
 			)
 
-		def Fail(msg: String)(implicit ctx: P[?]): P[Nothing] =
+		def Fail(msg: String)(implicit ctx: P[?]): Nothing =
 			throw new Exception(s"Parsing failure at index ${ctx.index}: $msg")
 
 		def `let`   [$: P] = W("var")
@@ -236,13 +235,18 @@ object Parsing {
 		println("-------------------------------")
 		println(r.map(_[[a] =>> String]))
 		println("===============================")
-		println(r.map(_.execute[EvalErr]().value.value))
+		println(r.map(_.evaluate()))
+		//val task: Either[String, Task[?]] = r.map(_.execute[Task]())
 		println("-------------------------------")
 	}
 
 	def main(args: Array[String]): Unit = {
+		doStuff()
+	}
+
+	def doStuff(): Unit = {
 		parsePrint(
-			"""var x = 1
+			"""var x = 1 / 0
 				|x
 				|""".stripMargin
 		)
