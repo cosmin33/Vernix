@@ -47,7 +47,8 @@ object Parsing {
 			Map(
 				"Int"     -> Type.IntType,
 				"Double"  -> Type.DoubleType,
-				"Boolean" -> Type.BooleanType
+				"Boolean" -> Type.BooleanType,
+				"String"	-> Type.StringType,
 			)
 
 		def Fail(msg: String)(implicit ctx: P[?]): Nothing =
