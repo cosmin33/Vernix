@@ -22,9 +22,6 @@ object Type:
 	given DoubleType: Type[Double] = new Type[Double]:
 		override def name: String = "Double"
 
-	given ExprType[A: Type]: Type[Expr[A]] = new Type[Expr[A]]:
-		override def name: String = s"Expr[${Type[A].name}]"
-
 	given FunctionType[A: Type, B: Type]: Type[A => B] = new Type[A => B]:
 		override def name: String = s"(${Type[A].name} => ${Type[B].name})"
 

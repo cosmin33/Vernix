@@ -30,10 +30,6 @@ object TypeSpec extends ZIOSpecDefault {
       }
     ),
     suite("Complex Types")(
-      test("Expr type has correct name") {
-        val tpe = Type[Expr[Int]]
-        assertTrue(tpe.name == "Expr[Int]")
-      },
       test("Function type has correct name") {
         val tpe = Type[Int => String]
         assertTrue(tpe.name == "(Int => String)")
