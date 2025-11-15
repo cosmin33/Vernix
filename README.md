@@ -62,6 +62,12 @@ val program3 =
   variable[Int]("x")
 // Evaluate with ZIO: 10
 
+// With function definition and calling
+val program4 = 
+  addFunction[Int, Int]("triple", "x", variable[Int]("x") * value(3)) *>
+  callFunction[Int, Int]("triple", value(5))
+// Evaluate with ZIO: 15
+
 // Execute a program
 import zio.interop.catz.*
 Unsafe.unsafe { implicit unsafe =>
@@ -82,6 +88,7 @@ Unsafe.unsafe { implicit unsafe =>
   - Logical: `&&`, `||`, `!`
   - String: `++` (concatenation), `len`
 - **Type conversions**: `toDouble` for Int to Double conversion
+- **Functions**: Define and call single-parameter functions with type safety
 - **Nested scopes**: Support for nested variable scopes with the `nest` operation
 - **Comprehensive test suite**: 110+ tests covering all major functionality
 
