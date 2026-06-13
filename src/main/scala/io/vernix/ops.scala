@@ -129,13 +129,11 @@ object Ops:
 		def *>[A, B](l: Type[A], r: Type[B]): Type[B] = r
 
 	type IdentState[A] = State[Int, String]
-	extension (s: State[Int, String])
-		def ident: State[Int, String] = s.flatMap(str => State.get.map(id => (" " * id) + str))
 	extension(s: String)
 		def ident(n: Int): String = (" " * n) + s
 
 	given Ops[IdentState] = new Ops[IdentState]:
-		def value[A: Type](v: A): IdentState[String] = State.pure(v.toString).ident
+		def value[A: Type](v: A): IdentState[String] = State.pure(v.toString)
 		def add[N: {Type, Numeric}](l: IdentState[N], r: IdentState[N]): IdentState[N] =
 			l.flatMap(l => r.map(r => s"($l + $r)"))
 		def sub[N: {Type, Numeric}](l: IdentState[N], r: IdentState[N]): IdentState[N] =
@@ -162,20 +160,20 @@ object Ops:
 			State { i =>
 				val act = action.runA(i + 2).value
 				val cond = condition.runA(i + 2).value
-				i -> ("repeat {" + "\n" + act.ident(i + 2) + "} until {".ident(i + 2) + "\n" + cond.ident(i + 2) + "}".ident(i))
+				i -> ("repeat {" + "\n" + act.ident(i + 2) + "\n" + "} until {".ident(i) + "\n" + cond.ident(i + 2) + "\n" + "}".ident(i))
 			}
 		def whileDo[A](condition: => IdentState[String])(action: => IdentState[String]): IdentState[String] =
 			State { i =>
 				val act = action.runA(i + 2).value
 				val cond = condition.runA(i + 2).value
-				i -> ("do {" + "\n" + act.ident(i + 2) + "} while {".ident(i) + "\n" + cond.ident(i + 2) + "}".ident(i))
+				i -> ("while {" + "\n" + cond.ident(i + 2) + "\n" + "} do {".ident(i) + "\n" + act.ident(i + 2) + "\n" + "}".ident(i))
 			}
 		def ifElse[A](cond: IdentState[String])(ifTrue: => IdentState[String], ifFalse: => IdentState[String]): IdentState[String] =
 			State { i =>
 				val cnd = cond.runA(i).value
 				val ift = ifTrue.runA(i + 2).value
 				val iff = ifFalse.runA(i + 2).value
-				i -> (s"if ($cnd) {" + "\n" + ift.ident(i + 2) + "} else {".ident(i) + "\n" + iff.ident(i + 2) + "\n" + "}".ident(i))
+				i -> (s"if ($cnd) {" + "\n" + ift.ident(i + 2) + "\n" + "} else {".ident(i) + "\n" + iff.ident(i + 2) + "\n" + "}".ident(i))
 			}
 		def and(l: IdentState[String], r: IdentState[String]): IdentState[String] =
 			l.flatMap(l => r.map(r => s"($l && $r)"))
