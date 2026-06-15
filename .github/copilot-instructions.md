@@ -108,7 +108,7 @@ Located in `src/main/scala/io/vernix/`:
 - **programs.scala**: Core `Program[A]` trait and DSL operations
 - **expressions.scala**: `Expr[A]` trait for compiled expressions
 - **statements.scala**: `Statements[F[_]]` trait extending `Ops[F]`
-- **ops.scala**: `Ops[F[_]]` trait defining core operations with ZIO and Try implementations
+- **ops.scala**: `Ops[F[_]]` trait defining core operations with ZIO and lazy (`EitherT[Eval, Throwable, *]`) implementations
 - **Type.scala**: Type system with given instances for basic types
 - **OpContext.scala**: Context management for variables and functions
 - **Parsing.scala**: Parser implementation (incomplete - returns NotImplementedError)
@@ -123,7 +123,7 @@ Located in `src/main/scala/io/vernix/`:
 - Use `Program.variable[T]("name")` for variable references
 - Chain operations with `*>` (sequence) and arithmetic operators
 - Compile programs with `.compile` returning `Try[Expr[A]]`
-- Execute expressions with `.apply[F]` where F is Task, Try, etc.
+- Execute expressions with `.apply[F]` where F is a lazy effect such as Task or `Lazy[A] = Eval[Either[Throwable, A]]` (not eager types like `Try`, which the interpreter's `Defer` usage cannot delay)
 
 ## Troubleshooting
 

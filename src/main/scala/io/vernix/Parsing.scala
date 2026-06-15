@@ -1,7 +1,5 @@
 package io.vernix
 
-import cats.Eval
-import cats.data.EitherT
 import fastparse.*
 import fastparse.ScalaWhitespace.*
 import io.vernix.Prog.prog
@@ -27,7 +25,8 @@ object Parsing {
 	private def Lower[$: P] = P(CharPred(LowerChar))
 	private def Upper[$: P] = P(CharPred(UpperChar))
 
-	private def validName[$: P] = P(CharPred(LetterDollarUnderscore) ~~ CharPred(LetterDigitDollarUnderscore).rep).!
+	// repX (not rep) so the identifier does not swallow whitespace between characters.
+	private def validName[$: P] = P(CharPred(LetterDollarUnderscore) ~~ CharPred(LetterDigitDollarUnderscore).repX).!
 
 	private def W[$: P](s: String) = P(s ~~ !CharPred(LetterDigitDollarUnderscore)) //(using s"`$s`", summon)
 
@@ -43,13 +42,8 @@ object Parsing {
 
 	def parseUnknown(s: String): Either[String, Program[?]] = {
 		var ctx: VarCtx = VarCtx.empty
-		val strToType: Map[String, Type[?]] =
-			Map(
-				"Int"     -> Type.IntType,
-				"Double"  -> Type.DoubleType,
-				"Boolean" -> Type.BooleanType,
-				"String"	-> Type.StringType,
-			)
+		var tmpCounter: Int = 0
+		def resolveType(name: String): Option[Type[?]] = Type.resolve(name)
 
 		def Fail(msg: String)(implicit ctx: P[?]): Nothing =
 			throw new Exception(s"Parsing failure at index ${ctx.index}: $msg")
@@ -76,19 +70,28 @@ object Parsing {
 
 		import ParsingOps.*
 
-		def parens[$: P, T]: P[Prog] = P("(" ~/ andOr ~ ")")
-		def factor[$: P]: P[Prog] = P(`int` | `double` | boolean | parens | block | variable | funCall)
-		def variable[$: P]: P[Prog] = P(validName ~ !CharIn("(=")).flatMapX:
+		def stringLit[$: P]: P[Prog.Aux[String]] = P("\"" ~~ CharsWhile(_ != '"', 0).! ~~ "\"").map(str => Program.value(str).prog)
+		// A parenthesised group of one element is just grouping; two or more makes a tuple.
+		def parens[$: P]: P[Prog] = P("(" ~/ andOr ~ ("," ~/ andOr).rep ~ ")").map {
+			case (first, rest) => if rest.isEmpty then first else ParsingOps.tuple(first +: rest.toList)
+		}
+		def factor[$: P]: P[Prog] = P(`int` | `double` | boolean | stringLit | parens | block | variable | funCall)
+		// Postfix tuple access: `expr._1`, `expr._2`, ...
+		def accessor[$: P]: P[Prog] = P(factor ~~ ("." ~~ "_" ~~ DecNum.!).rep).map {
+			case (base, indices) => indices.foldLeft(base)((acc, n) => ParsingOps.tupleAccess(acc, n.toInt - 1))
+		}
+		// Reject a name that begins a call `f(` or an assignment `x =`, but allow `==` comparison.
+		def variable[$: P]: P[Prog] = P(validName ~ !("(" | ("=" ~~ !"="))).flatMapX:
 			name =>
 				ctx.getVariableType(name) match
 					case Some(tpe) =>
-						strToType.get(tpe) match
+						resolveType(tpe) match
 							case Some(t) => Pass(Program.variable[t.TypeOf](name)(using t).prog(using t))
 							case None    => Fail(s"Unsupported variable type: $tpe")
 					case None        => Fail(s"Undefined variable: $name")
 
 		def divMul[$: P, T]: P[Prog] =
-			P(factor ~ (CharIn("*/%").! ~/ factor).rep).map {
+			P(accessor ~ (CharIn("*/%").! ~/ accessor).rep).map {
 				case (left: Prog, ops: Seq[(String, Prog)]) =>
 					ops.foldLeft(left):
 						case (acc, ("*", r)) => op_*(acc, r)
@@ -136,14 +139,39 @@ object Parsing {
 						case scala.util.Success(_) => Pass(Program.addVar(name, value.program).prog)
 						case scala.util.Failure(ex) => Fail(ex.getMessage)
 
+		// Destructuring binding: `var (a, b, c) = <tuple-expr>`. The tuple is stored in a fresh
+		// temp variable and each name is bound to the corresponding element.
+		def letTupleStmt[$: P]: P[Prog] =
+			P(`let` ~ "(" ~/ validName ~ ("," ~ validName).rep(1) ~ ")" ~ "=" ~ statement).flatMap:
+				case (n1, ns, value) =>
+					val names = n1 +: ns.toList
+					Type.elementTypes(value.`type`) match
+						case Some(types) if types.size == names.size =>
+							val tmpName = s"$$tup$tmpCounter"
+							tmpCounter += 1
+							Try {
+								ctx.addVariable(tmpName, value.`type`.name)
+								names.zip(types).foreach((nm, t) => ctx.addVariable(nm, t.name))
+							} match
+								case scala.util.Success(_) =>
+									given Type[value.T] = value.`type`
+									val readTmp: Program[value.T] = Program.variable[value.T](tmpName)
+									val binds = names.zip(types).zipWithIndex.map:
+										case ((nm, t), idx) => Program.addVar(nm, Program.tupleAt(readTmp, idx, t))(using t)
+									val full = binds.foldLeft[Program[Unit]](Program.addVar(tmpName, value.program))(_ *> _)
+									Pass(Prog(full))
+								case scala.util.Failure(ex) => Fail(ex.getMessage)
+						case Some(types) => Fail(s"Pattern binds ${names.size} names but value is a ${types.size}-tuple")
+						case None        => Fail(s"Cannot destructure non-tuple type ${value.`type`.name}")
+
 		def assignStmt[$: P]: P[Prog] =
 			P(validName ~ "=" ~ statement).flatMap:
 				case (name, value) =>
 					given Type[value.T] = value.`type`
 					ctx.getVariableType(name) match
 						case Some(tpe) =>
-							strToType.get(tpe) match
-								case Some(t) if t == value.`type` =>
+							resolveType(tpe) match
+								case Some(t) if t.name == value.`type`.name =>
 									Pass(Program.setVar(name, value.program).prog)
 								case Some(_) => Fail(s"Type mismatch in assignment to $name: expected $tpe, got ${value.`type`.name}")
 								case None    => Fail(s"Unsupported variable type: $tpe")
@@ -161,7 +189,10 @@ object Parsing {
 		def funDef[$: P]: P[Prog] =
 			P(funInterface ~ "=" ~ statement).flatMap:
 				case (funName, argName, argType, body) =>
-					strToType.get(argType) match
+					// The body has been parsed with the argument in scope; pop that scope so the
+					// function name is registered in the enclosing scope (and stays callable later).
+					ctx = ctx.unNest()
+					resolveType(argType) match
 						case Some(t) =>
 							given Type[body.T] = body.`type`
 							given Type[t.TypeOf] = t
@@ -170,7 +201,6 @@ object Parsing {
 									Pass(Program.addFunction[t.TypeOf, body.T](funName, argName, body.program).prog)
 								case scala.util.Failure(ex) => Fail(ex.getMessage)
 						case None => Fail(s"Unsupported function argument type: $argType")
-				.flatMap {p => ctx.unNest(); Pass(p)}
 
 		def funCall[$: P]: P[Prog] =
 			P(validName ~ "(" ~ statement ~ ")").flatMap:
@@ -178,9 +208,9 @@ object Parsing {
 					ctx.getVariableType(funName) match
 						case Some(tpe) if tpe.contains("=>") =>
 							val Array(argType, returnType) = tpe.split("=>").map(_.trim)
-							strToType.get(argType) match
-								case Some(at) if at == arg.`type` =>
-									strToType.get(returnType) match
+							resolveType(argType) match
+								case Some(at) if at.name == arg.`type`.name =>
+									resolveType(returnType) match
 										case Some(rt) =>
 											val a = arg.program.asInstanceOf[Program[at.TypeOf]] // safe due to the type check above
 											P.current.map(_ => Program.callFunction[at.TypeOf, rt.TypeOf](funName, a)(using at, rt).prog(using rt))
@@ -203,7 +233,7 @@ object Parsing {
 			P(`while` ~ statement ~ `do` ~ statement).map:
 				case (condition, action) => Program.whileDo(condition.unsafe[Boolean])(action.program).prog
 
-		def statement[$: P]: P[Prog] = P(ifStmt | repeatUntil | whileDo | letStmt | assignStmt | funDef | andOr)
+		def statement[$: P]: P[Prog] = P(ifStmt | repeatUntil | whileDo | letTupleStmt | letStmt | assignStmt | funDef | andOr)
 
 		def doNesting[A](b: => A): A =
 			ctx = ctx.nest()
@@ -228,68 +258,4 @@ object Parsing {
 			case s @ Parsed.Success(value, index) => Right(value)
 		).toEither.left.map(_.getMessage).flatten
 	}
-
-	type EvalErr[A] = EitherT[Eval, Throwable, A]
-
-	def parsePrint(s: String): Unit = {
-		val r: Either[String, Program[?]] = parseUnknown(s)
-		println("-------------------------------")
-		println(r.map(_[[a] =>> String]))
-		println("===============================")
-		println(r.map(_.evaluate()))
-		//val task: Either[String, Task[?]] = r.map(_.execute[Task]())
-		println("-------------------------------")
-	}
-
-	def main(args: Array[String]): Unit = {
-		doStuff()
-	}
-
-	def doStuff(): Unit = {
-		parsePrint(
-			"""var x = 1 / 0
-				|x
-				|""".stripMargin
-		)
-		parsePrint(
-			"""
-				var x = {2 + 3 * 4}; var y = x - 5 / 2
-				x = x - 10
-				if y > 10 then x = x + 10 else x = x - 10
-				while x < 20 do
-				  x = x + 2
-				repeat
-				  x = x + 3
-				until x >= 30
-				def triple(x: Int) = x * 3
-				x = x + triple(5)
-	 			x
-			"""
-		)
-		parsePrint(
-			"""
-				|var x = {var y = 1; y + 1}
-				|x = x + 2
-				|x
-				|""".stripMargin
-		)
-		parsePrint(
-			"""var x = 1d
-				|{
-				|  var x = 2
-				|  x = 3
-				|}
-				|x
-				|""".stripMargin
-		)
-		parsePrint(
-			"""
-				|var a = 2 + 3
-				|def triple(a: Int) = a + a + a
-				|a = 1
-				|triple(a)
-				|""".stripMargin
-		)
-	}
-
 }

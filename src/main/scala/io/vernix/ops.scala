@@ -29,8 +29,10 @@ trait Ops[F[_]]:
 	def <=[A: {Type, Ordering}](l: F[A], r: F[A]): F[Boolean]
 	def > [A: {Type, Ordering}](l: F[A], r: F[A]): F[Boolean]
 	def >=[A: {Type, Ordering}](l: F[A], r: F[A]): F[Boolean]
-	def leftEntuple[A, T <: NonEmptyTuple](a: F[A], t: F[T]): F[A *: T]
+	def emptyTuple: F[EmptyTuple]
+	def leftEntuple[A, T <: Tuple](a: F[A], t: F[T]): F[A *: T]
 	def rightEntuple[T <: NonEmptyTuple, A](t: F[T], a: F[A]): F[Tuple.Append[T, A]]
+	def tupleAt[T <: NonEmptyTuple, A: Type](t: F[T], index: Int): F[A]
 	def *>[A, B](l: F[A], r: F[B]): F[B]
 object Ops:
 	def apply[F[_]](using ops: Ops[F]): Ops[F] = ops
@@ -64,8 +66,10 @@ object Ops:
 			def <=[A: {Type, Ordering}](l: F[A], r: F[A]): F[Boolean] = Apply[F].map2(l, r)(Ordering[A].lteq)
 			def > [A: {Type, Ordering}](l: F[A], r: F[A]): F[Boolean] = Apply[F].map2(l, r)(Ordering[A].gt)
 			def >=[A: {Type, Ordering}](l: F[A], r: F[A]): F[Boolean] = Apply[F].map2(l, r)(Ordering[A].gteq)
-			def leftEntuple[A, T <: NonEmptyTuple](a: F[A], t: F[T]): F[A *: T] = Apply[F].map2(a, t)(_ *: _)
+			def leftEntuple[A, T <: Tuple](a: F[A], t: F[T]): F[A *: T] = Apply[F].map2(a, t)(_ *: _)
 			def rightEntuple[T <: NonEmptyTuple, A](t: F[T], a: F[A]): F[Tuple.Append[T, A]] = Apply[F].map2(t, a)(_ :* _)
+				def emptyTuple: F[EmptyTuple] = Monad[F].pure(EmptyTuple)
+				def tupleAt[T <: NonEmptyTuple, A: Type](t: F[T], index: Int): F[A] = t.map(_.productElement(index).asInstanceOf[A])
 			def *>[A, B](l: F[A], r: F[B]): F[B] = Apply[F].productR(l)(r)
 
 	given Ops[[a] =>> String] = new Ops[[a] =>> String]:
@@ -93,8 +97,10 @@ object Ops:
 		def <=[A: {Type, Ordering}](l: String, r: String): String = s"($l <= $r)"
 		def > [A: {Type, Ordering}](l: String, r: String): String = s"($l > $r)"
 		def >=[A: {Type, Ordering}](l: String, r: String): String = s"($l >= $r)"
-		def leftEntuple[A, T <: NonEmptyTuple](a: String, t: String): String = s"($a, $t)"
+		def leftEntuple[A, T <: Tuple](a: String, t: String): String = if t == "()" then s"($a)" else s"($a, ${t.substring(1, t.length - 1)})"
 		def rightEntuple[T <: NonEmptyTuple, A](t: String, a: String): String = s"($t, $a)"
+		def emptyTuple: String = "()"
+		def tupleAt[T <: NonEmptyTuple, A: Type](t: String, index: Int): String = s"$t._${index + 1}"
 		def *>[A, B](l: String, r: String): String = s"$l\n$r"
 
 	given Ops[Type] = new Ops[Type]:
@@ -122,10 +128,12 @@ object Ops:
 		def <=[A: {Type, Ordering}](l: Type[A], r: Type[A]): Type[Boolean] = Type[Boolean]
 		def > [A: {Type, Ordering}](l: Type[A], r: Type[A]): Type[Boolean] = Type[Boolean]
 		def >=[A: {Type, Ordering}](l: Type[A], r: Type[A]): Type[Boolean] = Type[Boolean]
-		def leftEntuple[A, T <: NonEmptyTuple](a: Type[A], t: Type[T]): Type[A *: T] =
-			Type.TupLeftType[A, T](using a, t)
+		def emptyTuple: Type[EmptyTuple] = Type[EmptyTuple]
+		def leftEntuple[A, T <: Tuple](a: Type[A], t: Type[T]): Type[A *: T] =
+			Type.NonEmptyTupleType[A, T](using a, t)
 		def rightEntuple[T <: NonEmptyTuple, A](t: Type[T], a: Type[A]): Type[Tuple.Append[T, A]] =
 			Type.TupRightType[T, A](using t, a)
+		def tupleAt[T <: NonEmptyTuple, A: Type](t: Type[T], index: Int): Type[A] = Type[A]
 		def *>[A, B](l: Type[A], r: Type[B]): Type[B] = r
 
 	type IdentState[A] = State[Int, String]
@@ -193,10 +201,17 @@ object Ops:
 			l.flatMap(l => r.map(r => s"($l > $r)"))
 		def >=[A: {Type, Ordering}](l: IdentState[String], r: IdentState[String]): IdentState[String] =
 			l.flatMap(l => r.map(r => s"($l >= $r)"))
-		def leftEntuple[A, T <: NonEmptyTuple](a: IdentState[String], t: IdentState[String]): IdentState[String] =
-			State(id => id -> s"(${a.runA(id).value}, ${t.runA(id).value})")
+		def emptyTuple: IdentState[String] = State.pure("()")
+		def leftEntuple[A, T <: Tuple](a: IdentState[String], t: IdentState[String]): IdentState[String] =
+			State { id =>
+				val tail = t.runA(id).value
+				val inner = if tail == "()" then "" else tail.substring(1, tail.length - 1)
+				id -> (if inner.isEmpty then s"(${a.runA(id).value})" else s"(${a.runA(id).value}, $inner)")
+			}
 		def rightEntuple[T <: NonEmptyTuple, A](t: IdentState[String], a: IdentState[String]): IdentState[String] =
 			State(id => id -> s"(${t.runA(id).value}, ${a.runA(id).value})")
+		def tupleAt[T <: NonEmptyTuple, A: Type](t: IdentState[String], index: Int): IdentState[String] =
+			t.map(s => s"$s._${index + 1}")
 		def *>[A, B](l: IdentState[String], r: IdentState[String]): IdentState[String] =
 			State(id => id -> (l.runA(id).value + "\n" + r.runA(id).value.ident(id)))
 		

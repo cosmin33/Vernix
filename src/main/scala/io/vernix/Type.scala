@@ -25,17 +25,17 @@ object Type:
 	given FunctionType[A: Type, B: Type]: Type[A => B] = new Type[A => B]:
 		override def name: String = s"(${Type[A].name} => ${Type[B].name})"
 
-	given Tuple2Type[A: Type, B: Type]: Type[(A, B)] = new Type[(A, B)]:
-		override def name: String = s"(${Type[A].name}, ${Type[B].name})"
-		
-	given TupLeftType[A, T <: NonEmptyTuple](using ta: Type[A], tt: Type[T]): Type[A *: T] = new Type[A *: T]:
-		override def name: String = s"(${Type[A].name} -> ${Type[T].name})"
-	
+	given EmptyTupleType: Type[EmptyTuple] = new Type[EmptyTuple]:
+		override def name: String = "EmptyTuple"
+
+	given NonEmptyTupleType[H, T <: Tuple](using h: Type[H], t: Type[T]): Type[H *: T] = new Type[H *: T]:
+		override def name: String =
+			val tn = t.name
+			if tn == "EmptyTuple" then s"(${h.name})"
+			else s"(${h.name}, ${tn.substring(1, tn.length - 1)})"
+
 	given TupRightType[T <: NonEmptyTuple, A](using tt: Type[T], ta: Type[A]): Type[Tuple.Append[T, A]] = new Type[Tuple.Append[T, A]]:
 		override def name: String = s"${Type[T].name} :* ${Type[A].name}"
-		
-//	given TupEmptyType: Type[EmptyTuple] = new Type[EmptyTuple]:
-//		override def name: String = "EmptyTuple"
 
 	given EitherType[A: Type, B: Type]: Type[Either[A, B]] = new Type[Either[A, B]]:
 		override def name: String = s"Either[${Type[A].name}, ${Type[B].name}]"
@@ -51,4 +51,48 @@ object Type:
 
 	given OptionType[A: Type]: Type[Option[A]] = new Type[Option[A]]:
 		override def name: String = s"Option[${Type[A].name}]"
+
+	private val baseTypes: Map[String, Type[?]] =
+		Map("Int" -> IntType, "Double" -> DoubleType, "Boolean" -> BooleanType, "String" -> StringType, "Unit" -> UnitType)
+
+	private def consHelper[H, T <: Tuple](h: Type[H], t: Type[T]): Type[H *: T] = NonEmptyTupleType(using h, t)
+
+	/** Combine an element type with a tuple type to form the cons type `H *: T`. */
+	def cons(h: Type[?], t: Type[? <: Tuple]): Type[? <: Tuple] = consHelper(h, t)
+
+	/** Build the type of a tuple from the types of its elements. */
+	def tupleTypeOf(parts: List[Type[?]]): Type[? <: Tuple] =
+		parts.foldRight[Type[? <: Tuple]](EmptyTupleType)((h, acc) => cons(h, acc))
+
+	/** Split a comma-separated list, respecting nested parentheses. */
+	private def splitTopLevel(s: String): List[String] =
+		val parts = List.newBuilder[String]
+		val current = new StringBuilder
+		var depth = 0
+		for c <- s do
+			c match
+				case '(' => depth += 1; current.append(c)
+				case ')' => depth -= 1; current.append(c)
+				case ',' if depth == 0 => parts += current.toString; current.clear()
+				case _ => current.append(c)
+		parts += current.toString
+		parts.result().map(_.trim).filter(_.nonEmpty)
+
+	/** Resolve a type name (base type or tuple of resolvable types) back to a `Type`. */
+	def resolve(name: String): Option[Type[?]] =
+		val s = name.trim
+		baseTypes.get(s).orElse {
+			if s.startsWith("(") && s.endsWith(")") then
+				val resolved = splitTopLevel(s.substring(1, s.length - 1)).map(resolve)
+				Option.when(resolved.nonEmpty && resolved.forall(_.isDefined))(tupleTypeOf(resolved.flatten))
+			else None
+		}
+
+	/** If `t` is a tuple type, return the types of its elements. */
+	def elementTypes(t: Type[?]): Option[List[Type[?]]] =
+		val s = t.name.trim
+		if s.startsWith("(") && s.endsWith(")") then
+			val resolved = splitTopLevel(s.substring(1, s.length - 1)).map(resolve)
+			Option.when(resolved.nonEmpty && resolved.forall(_.isDefined))(resolved.flatten)
+		else None
 end Type

@@ -289,7 +289,7 @@ def parseRun(s: String): Unit
 **Output format:**
 1. **String representation**: Shows the program structure
 2. **Applied form**: Shows the program after type application
-3. **Execution result**: Shows the result of executing the program with `Try`
+3. **Execution result**: Shows the result of executing the program with a lazy effect (`Lazy[A] = Eval[Either[Throwable, A]]`)
 
 ## Example Programs
 
@@ -458,17 +458,26 @@ Parsing.parseUnknown("var x = 5 + true")  // Type error: cannot add Int and Bool
 
 ## Running the Parser
 
-### From SBT
+### Tests
+
+Parser behaviour is exercised by the test suite:
 
 ```bash
-sbt "runMain io.vernix.Parsing"
+sbt "testOnly io.vernix.ParsingSpec"
 ```
 
 ### Programmatically
 
 ```scala
 import io.vernix.{Parsing, VarHeap}
-import scala.util.Try
+import cats.Eval
+import cats.data.EitherT
+
+// Execution must use a lazy effect. `Try` is eager and therefore unsuitable:
+// the interpreter relies on `Defer` to delay evaluation, but `Try` evaluates
+// eagerly when constructed. `Lazy` defers via `Eval` and is
+// `Eval[Either[Throwable, A]]` underneath.
+type Lazy[A] = EitherT[Eval, Throwable, A]
 
 // Parse a program
 val source = """
@@ -479,8 +488,9 @@ val source = """
 
 Parsing.parseUnknown(source) match {
   case Right(program) =>
-    // Execute the program
-    val result = program.execute[Try](VarHeap.empty)
+    // Execute the program; `.value.value` runs the Eval and yields
+    // Either[Throwable, A]
+    val result = program.execute[Lazy](VarHeap.empty).value.value
     println(s"Result: $result")
   case Left(error) =>
     println(s"Parse error: $error")

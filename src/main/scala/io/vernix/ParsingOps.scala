@@ -125,4 +125,18 @@ object ParsingOps:
 			case Type.BooleanType => Program.whileDo(condition.unsafe[Boolean])(action.program).prog
 			case _ => throw new Exception(s"Condition must be of type Boolean, not ${condition.`type`.name}")
 
+	def tuple(parts: List[Prog]): Prog =
+		val tupleType = Type.tupleTypeOf(parts.map(_.`type`))
+		Prog.make(Program.tuple(parts.map(_.program)), tupleType)
+
+	def tupleAccess(base: Prog, index: Int): Prog =
+		Type.elementTypes(base.`type`) match
+			case Some(types) if index >= 0 && index < types.size =>
+				val elemType = types(index)
+				Prog.make(Program.tupleAt(base.program, index, elemType), elemType)
+			case Some(types) =>
+				throw new Exception(s"Tuple ${base.`type`.name} has ${types.size} elements; cannot access ._${index + 1}")
+			case None =>
+				throw new Exception(s"Cannot access ._${index + 1} on non-tuple type ${base.`type`.name}")
+
 end ParsingOps

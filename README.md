@@ -10,15 +10,17 @@ Interpreter for a scala-like mini programming language
 
 ### Using the Parser
 
-Run the parser examples:
-```bash
-sbt "runMain io.vernix.Parsing"
-```
-
 Parse and execute a simple program:
 ```scala
 import io.vernix.{Parsing, VarHeap}
-import scala.util.Try
+import cats.Eval
+import cats.data.EitherT
+
+// A lazy, exception-capturing effect. `Try` must NOT be used here: it is
+// eager, so its `Defer` instance evaluates the program as it is built
+// rather than on demand, which breaks the interpreter. `Lazy` defers
+// evaluation via `Eval` (it is `Eval[Either[Throwable, A]]` underneath).
+type Lazy[A] = EitherT[Eval, Throwable, A]
 
 val source = """
   var x = 2 + 3 * 4
@@ -27,9 +29,10 @@ val source = """
 """
 
 Parsing.parseUnknown(source) match {
-  case Right(program) => 
-    println(program.execute[Try](VarHeap.empty))
-  case Left(error) => 
+  case Right(program) =>
+    // `.value.value` unwraps EitherT -> Eval -> Either[Throwable, A]
+    println(program.execute[Lazy](VarHeap.empty).value.value)
+  case Left(error) =>
     println(s"Error: $error")
 }
 ```
@@ -79,7 +82,7 @@ Unsafe.unsafe { implicit unsafe =>
 
 - **Type-safe DSL**: Create programs using a typed embedded DSL
 - **Parser**: Parse text-based programs into executable AST
-- **Multiple execution backends**: Execute with ZIO Task, Scala Try, or custom effect types
+- **Multiple execution backends**: Execute with ZIO Task, a lazy `Lazy[A] = Eval[Either[Throwable, A]]`, or custom effect types (the backend must be lazy — eager types like `Try` are unsuitable)
 - **Control flow**: Support for if-then-else, while-do, and repeat-until loops
 - **Variables**: Mutable variable support with type safety and scoping
 - **Operators**: 

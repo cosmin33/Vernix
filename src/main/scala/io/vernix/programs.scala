@@ -57,10 +57,14 @@ trait Program[A]:
 		def apply[F[_]: {Ops, Statements}]: F[Boolean] = Ops[F].`>`(self[F], that[F])
 	def >=(that: Program[A])(using Type[A], Ordering[A]): Program[Boolean] = new Program[Boolean]:
 		def apply[F[_]: {Ops, Statements}]: F[Boolean] = Ops[F].`>=`(self[F], that[F])
-	def leftEntuple[T <: NonEmptyTuple](t: Program[T]): Program[A *: T] = new Program[A *: T]:
+	def leftEntuple[T <: Tuple](t: Program[T]): Program[A *: T] = new Program[A *: T]:
 		def apply[F[_]: {Ops, Statements}]: F[A *: T] = Ops[F].leftEntuple(self[F], t[F])
 	def rightEntuple[T <: NonEmptyTuple](t: Program[T]): Program[Tuple.Append[T, A]] = new Program[Tuple.Append[T, A]]:
 		def apply[F[_]: {Ops, Statements}]: F[Tuple.Append[T, A]] = Ops[F].rightEntuple(t[F], self[F])
+	def at[N <: Int & Singleton](n: N)(using A <:< NonEmptyTuple, Type[Tuple.Elem[A & NonEmptyTuple, N]]): Program[Tuple.Elem[A & NonEmptyTuple, N]] =
+		new Program[Tuple.Elem[A & NonEmptyTuple, N]]:
+			def apply[F[_]: {Ops, Statements}]: F[Tuple.Elem[A & NonEmptyTuple, N]] =
+				Ops[F].tupleAt[A & NonEmptyTuple, Tuple.Elem[A & NonEmptyTuple, N]](self[F].asInstanceOf[F[A & NonEmptyTuple]], n)
 	def nest: Program[A] = new Program[A]:
 		def apply[F[_]: {Ops, Statements}]: F[A] = Statements[F].nest(self[F])
 	def *>[B](that: Program[B]): Program[B] = new Program[B]:
@@ -85,6 +89,19 @@ object Program:
 		def apply[F[_]: {Ops, Statements}]: F[A] = Ops[F].repeatUntil(action[F])(condition[F])
 	def ifElse[A](cond: Program[Boolean])(ifTrue: Program[A], ifFalse: Program[A]): Program[A] = new Program[A]:
 		def apply[F[_]: {Ops, Statements}]: F[A] = Ops[F].ifElse(cond[F])(ifTrue[F], ifFalse[F])
+	def emptyTuple: Program[EmptyTuple] = new Program[EmptyTuple]:
+		def apply[F[_]: {Ops, Statements}]: F[EmptyTuple] = Ops[F].emptyTuple
+	// Builds a tuple program from its element programs. Typed as `Program[Tuple]`; the caller
+	// supplies the precise tuple `Type` (the elements' types are only known dynamically here).
+	def tuple(parts: List[Program[?]]): Program[Tuple] = new Program[Tuple]:
+		def apply[F[_]: {Ops, Statements}]: F[Tuple] =
+			parts.foldRight[F[Tuple]](Ops[F].emptyTuple.asInstanceOf[F[Tuple]]) { (h, acc) =>
+				Ops[F].leftEntuple[Any, Tuple](h.asInstanceOf[Program[Any]].apply[F], acc).asInstanceOf[F[Tuple]]
+			}
+	// Reads element `index` of a tuple program, typed by the supplied element `Type`.
+	def tupleAt(t: Program[?], index: Int, elemType: Type[?]): Program[elemType.TypeOf] = new Program[elemType.TypeOf]:
+		def apply[F[_]: {Ops, Statements}]: F[elemType.TypeOf] =
+			Ops[F].tupleAt[NonEmptyTuple, elemType.TypeOf](t.asInstanceOf[Program[NonEmptyTuple]].apply[F], index)(using elemType)
 end Program
 
 trait Prog:
@@ -106,6 +123,8 @@ object Prog:
 		type T = A
 		val `type`: Type[A] = summon
 		val program: Program[A] = p
+	/** Build a `Prog` from an existentially-typed program and its runtime `Type`. */
+	def make(p: Program[?], t: Type[?]): Prog.Aux[t.TypeOf] = Prog(p.asInstanceOf[Program[t.TypeOf]])(using t)
 	extension[T] (p: Program[T])
 		def prog(using Type[T]): Prog.Aux[T] = Prog(p)
 
