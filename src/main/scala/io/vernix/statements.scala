@@ -63,7 +63,7 @@ object Statements:
 		summon
 
 	given Statements[IdentState] = new Statements[IdentState]:
-		import IdentState.ident
+		import IdentState.{block, ident}
 
 		def variable[A: Type](name: String): IdentState[A] = State.pure(name)
 		def addVar[A: Type](name: String, value: IdentState[A]): IdentState[Unit] =
@@ -73,10 +73,7 @@ object Statements:
 		def nest[A](fa: IdentState[A]): IdentState[A] =
 			State(i => i -> ("{" + "\n" + fa.runA(i + 2).value.ident(i + 2) + "\n" + "}".ident(i)))
 		def addFunction[A: Type, B: Type](name: String, argName: String, body: IdentState[B]): IdentState[Unit] =
-			State { i =>
-				val b = body.runA(i + 2).value
-				i -> (s"def $name($argName: ${Type[A].name}): ${Type[B].name} = {" + "\n" + b.ident(i + 2) + "\n" + "}".ident(i))
-			}
+			State(i => i -> s"def $name($argName: ${Type[A].name}): ${Type[B].name} = ${block(body, i)}")
 		def callFunction[A: Type, B: Type](name: String, arg: IdentState[A]): IdentState[B] =
 			arg.map(a => s"$name($a)")
 

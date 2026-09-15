@@ -106,7 +106,7 @@ object Ops:
 		def *>[A, B](l: Type[A], r: Type[B]): Type[B] = r
 
 	given Ops[IdentState] = new Ops[IdentState]:
-		import IdentState.ident
+		import IdentState.{block, ident}
 
 		def value[A: Type](v: A): IdentState[String] = State.pure(v.toString)
 		def add[N: {Type, Numeric}](l: IdentState[N], r: IdentState[N]): IdentState[N] =
@@ -131,25 +131,29 @@ object Ops:
 			fa.map(v => s"$v.toDouble")
 		def concat(l: IdentState[String], r: IdentState[String]): IdentState[String] =
 			l.flatMap(l => r.map(r => s"($l ++ $r)"))
+		/** A single-line condition renders as `(cond)`; a multi-line one as a `{ ... }` block. */
+		private def renderCond(cond: IdentState[String], i: Int): String =
+			val rendered = cond.runA(i).value
+			if rendered.contains("\n") then block(cond, i)
+			else if rendered.startsWith("(") && rendered.endsWith(")") then rendered
+			else s"($rendered)"
+		/** `while { ... } do { ... }` and `if { ... } then { ... }` keep the keyword only for block conditions. */
+		private def keyword(cnd: String, kw: String): String = if cnd.startsWith("{") then s" $kw " else " "
 		def repeatUntil[A](action: => IdentState[String])(condition: => IdentState[String]): IdentState[String] =
 			State { i =>
-				val act = action.runA(i + 2).value
-				val cond = condition.runA(i + 2).value
-				i -> ("repeat {" + "\n" + act.ident(i + 2) + "\n" + "} until {".ident(i) + "\n" + cond.ident(i + 2) + "\n" + "}".ident(i))
+				val act = block(action, i)
+				val cnd = renderCond(condition, i)
+				i -> (s"repeat $act until $cnd")
 			}
 		def whileDo[A](condition: => IdentState[String])(action: => IdentState[String]): IdentState[String] =
 			State { i =>
-				val act = action.runA(i + 2).value
-				val cond = condition.runA(i + 2).value
-				i -> ("while {" + "\n" + cond.ident(i + 2) + "\n" + "} do {".ident(i) + "\n" + act.ident(i + 2) + "\n" + "}".ident(i))
+				val cnd = renderCond(condition, i)
+				i -> (s"while $cnd${keyword(cnd, "do")}${block(action, i)}")
 			}
 		def ifElse[A](cond: IdentState[String])(ifTrue: => IdentState[String], ifFalse: => IdentState[String]): IdentState[String] =
 			State { i =>
-				val rendered = cond.runA(i).value
-				val cnd = if rendered.startsWith("(") && rendered.endsWith(")") then rendered else s"($rendered)"
-				val ift = ifTrue.runA(i + 2).value
-				val iff = ifFalse.runA(i + 2).value
-				i -> (s"if $cnd {" + "\n" + ift.ident(i + 2) + "\n" + "} else {".ident(i) + "\n" + iff.ident(i + 2) + "\n" + "}".ident(i))
+				val cnd = renderCond(cond, i)
+				i -> (s"if $cnd${keyword(cnd, "then")}${block(ifTrue, i)} else ${block(ifFalse, i)}")
 			}
 		def and(l: IdentState[String], r: IdentState[String]): IdentState[String] =
 			l.flatMap(l => r.map(r => s"($l && $r)"))

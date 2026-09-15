@@ -123,6 +123,63 @@ object ParsingSpec extends ZIOSpecDefault {
       },
       test("arithmetic renders with explicit parentheses") {
         assertTrue(render("2 + 3 * 4") == "(2 + (3 * 4))")
+      },
+      test("a parsed block body renders with a single pair of braces") {
+        val expected =
+          """var i: Int = 0
+            |while {
+            |  var j: Int = 10
+            |  (i < j)
+            |} do {
+            |  i = (i + 1)
+            |}""".stripMargin
+        assertTrue(render("var i = 0; while {var j = 10; i < j} do { i = i + 1 }") == expected)
+      },
+      test("a single-line parsed condition renders inline without the do keyword") {
+        val expected =
+          """var i: Int = 0
+            |while (i < 10) {
+            |  i = (i + 1)
+            |}""".stripMargin
+        assertTrue(render("var i = 0; while i < 10 do { i = i + 1 }") == expected)
+      },
+      test("a parsed if with block condition and block branches uses then") {
+        val expected =
+          """var i: Int = 0
+            |if {
+            |  var j: Int = 10
+            |  (i < j)
+            |} then {
+            |  i = 1
+            |  i
+            |} else {
+            |  i = 2
+            |  i
+            |}""".stripMargin
+        assertTrue(render("var i = 0; if {var j = 10; i < j} then { i = 1; i } else { i = 2; i }") == expected)
+      },
+      test("a parsed if with inline condition keeps the then keyword out of the output") {
+        assertTrue(render("var i = 0; if i < 10 then 1 else 2") == "var i: Int = 0\nif (i < 10) {\n  1\n} else {\n  2\n}")
+      },
+      test("a parsed repeat with block body and block condition") {
+        val expected =
+          """var i: Int = 0
+            |repeat {
+            |  i = (i + 1)
+            |} until {
+            |  var j: Int = 3
+            |  (i >= j)
+            |}""".stripMargin
+        assertTrue(render("var i = 0; repeat { i = i + 1 } until {var j = 3; i >= j}") == expected)
+      },
+      test("a parsed function with a block body renders with a single pair of braces") {
+        val expected =
+          """def f(x: Int): Int = {
+            |  var y: Int = (x * 2)
+            |  (y + 1)
+            |}
+            |f(3)""".stripMargin
+        assertTrue(render("def f(x: Int) = { var y = x * 2; y + 1 }; f(3)") == expected)
       }
     ),
     // Three small classical programs that, combined, exercise every Vernix construct:

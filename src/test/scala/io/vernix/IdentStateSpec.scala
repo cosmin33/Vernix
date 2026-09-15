@@ -41,9 +41,7 @@ object IdentStateSpec extends ZIOSpecDefault {
     test("multi-statement block bodies indent each statement") {
       val program = O.whileDo(O.value(true))(O.*>(O.value(1), O.value(2)))
       val expected =
-        """while {
-          |  true
-          |} do {
+        """while (true) {
           |  1
           |  2
           |}""".stripMargin
@@ -62,15 +60,11 @@ object IdentStateSpec extends ZIOSpecDefault {
         )
       val expected =
         """0
-          |while {
-          |  (1 < 10)
-          |} do {
+          |while (1 < 10) {
           |  if (1 == 2) {
           |    repeat {
           |      5
-          |    } until {
-          |      true
-          |    }
+          |    } until (true)
           |  } else {
           |    7
           |  }
@@ -100,6 +94,90 @@ object IdentStateSpec extends ZIOSpecDefault {
           |}""".stripMargin
       assertTrue(program.runA(0).value == expected)
     },
+    test("a nested block body reuses its braces instead of doubling them") {
+      val body = S.nest(O.*>(S.addVar[Int]("x", O.value(1)), S.variable[Int]("x")))
+      val loop = O.whileDo(O.value(true))(body)
+      val fun = S.addFunction[Int, Int]("f", "i", body)
+      val expectedLoop =
+        """while (true) {
+          |  var x: Int = 1
+          |  x
+          |}""".stripMargin
+      val expectedFun =
+        """def f(i: Int): Int = {
+          |  var x: Int = 1
+          |  x
+          |}""".stripMargin
+      assertTrue(loop.runA(0).value == expectedLoop, fun.runA(0).value == expectedFun)
+    },
+    test("nested block bodies in if branches and repeat are not double-braced") {
+      val body = S.nest(O.*>(O.value(1), O.value(2)))
+      val branch = O.ifElse(O.value(true))(body, body)
+      val repeat = O.repeatUntil(body)(O.value(true))
+      val expectedBranch =
+        """if (true) {
+          |  1
+          |  2
+          |} else {
+          |  1
+          |  2
+          |}""".stripMargin
+      val expectedRepeat =
+        """repeat {
+          |  1
+          |  2
+          |} until (true)""".stripMargin
+      assertTrue(branch.runA(0).value == expectedBranch, repeat.runA(0).value == expectedRepeat)
+    },
+    test("block conditions render as blocks with the do/then keyword") {
+      val cond = S.nest(O.*>(S.addVar[Int]("j", O.value(10)), O.`<`[Int](S.variable[Int]("i"), S.variable[Int]("j"))))
+      val loop = O.whileDo(cond)(O.value(1))
+      val branch = O.ifElse(cond)(O.value(1), O.value(2))
+      val repeat = O.repeatUntil(O.value(1))(cond)
+      val expectedLoop =
+        """while {
+          |  var j: Int = 10
+          |  (i < j)
+          |} do {
+          |  1
+          |}""".stripMargin
+      val expectedBranch =
+        """if {
+          |  var j: Int = 10
+          |  (i < j)
+          |} then {
+          |  1
+          |} else {
+          |  2
+          |}""".stripMargin
+      val expectedRepeat =
+        """repeat {
+          |  1
+          |} until {
+          |  var j: Int = 10
+          |  (i < j)
+          |}""".stripMargin
+      assertTrue(
+        loop.runA(0).value == expectedLoop,
+        branch.runA(0).value == expectedBranch,
+        repeat.runA(0).value == expectedRepeat
+      )
+    },
+    test("a sequenced condition without nest is wrapped in a block") {
+      val program = O.ifElse(O.value(true))(O.whileDo(O.*>(O.value(1), O.value(true)))(O.value(4)), O.value(5))
+      val expected =
+        """if (true) {
+          |  while {
+          |    1
+          |    true
+          |  } do {
+          |    4
+          |  }
+          |} else {
+          |  5
+          |}""".stripMargin
+      assertTrue(program.runA(0).value == expected)
+    },
     test("function body indents, including nested blocks") {
       val i = S.variable[Int]("i")
       val program =
@@ -126,9 +204,7 @@ object IdentStateSpec extends ZIOSpecDefault {
           |def triple(i: Int): Int = {
           |  (i * 3)
           |}
-          |while {
-          |  (x < 10)
-          |} do {
+          |while (x < 10) {
           |  x = triple(x)
           |}
           |x""".stripMargin
