@@ -2,6 +2,8 @@ package io.vernix
 
 import cats.data.EitherT
 import cats.{Defer, Eval, MonadThrow}
+import io.circe.{Decoder, Encoder}
+import io.circe.Codec as CirceCodec
 import scala.util.Try
 
 trait Program[A]:
@@ -102,6 +104,8 @@ object Program:
 	def tupleAt(t: Program[?], index: Int, elemType: Type[?]): Program[elemType.TypeOf] = new Program[elemType.TypeOf]:
 		def apply[F[_]: {Ops, Statements}]: F[elemType.TypeOf] =
 			Ops[F].tupleAt[NonEmptyTuple, elemType.TypeOf](t.asInstanceOf[Program[NonEmptyTuple]].apply[F], index)(using elemType)
+
+	given [A](using Encoder[A], Decoder[A], Type[A]): CirceCodec[Program[A]] = ProgramCodec.programCodec
 end Program
 
 trait Prog:

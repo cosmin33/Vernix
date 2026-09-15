@@ -51,3 +51,4 @@ build/
 cs
 sbt-*.zip
 sbt/
+/graphify-out/

@@ -4,7 +4,19 @@ trait Type[T]:
 	def name: String
 
 	type TypeOf = T
-object Type:
+
+/** Holds only `TupRightType`, so that it loses to `NonEmptyTupleType` wherever `Tuple.Append` reduces
+  * (both match once it does). It is still selected when `T` is abstract and `Append` cannot reduce. */
+trait LowPriorityType:
+	given TupRightType[T <: NonEmptyTuple, A](using tt: Type[T], ta: Type[A]): Type[Tuple.Append[T, A]] = new Type[Tuple.Append[T, A]]:
+		override def name: String =
+			val tn = tt.name
+			// `tt` is a tuple type, so its name is parenthesised — except when a caller has forged one
+			// (`ProgramCodec` builds `Type`s from names), in which case keep the name intact.
+			if tn.startsWith("(") && tn.endsWith(")") then s"(${tn.substring(1, tn.length - 1)}, ${ta.name})"
+			else s"($tn, ${ta.name})"
+
+object Type extends LowPriorityType:
 	def apply[T](using t: Type[T]): Type[T] = t
 	
 	given UnitType: Type[Unit] = new Type[Unit]:
@@ -33,9 +45,6 @@ object Type:
 			val tn = t.name
 			if tn == "EmptyTuple" then s"(${h.name})"
 			else s"(${h.name}, ${tn.substring(1, tn.length - 1)})"
-
-	given TupRightType[T <: NonEmptyTuple, A](using tt: Type[T], ta: Type[A]): Type[Tuple.Append[T, A]] = new Type[Tuple.Append[T, A]]:
-		override def name: String = s"${Type[T].name} :* ${Type[A].name}"
 
 	given EitherType[A: Type, B: Type]: Type[Either[A, B]] = new Type[Either[A, B]]:
 		override def name: String = s"Either[${Type[A].name}, ${Type[B].name}]"

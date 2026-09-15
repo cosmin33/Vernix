@@ -76,6 +76,11 @@ object IdentStateSpec extends ZIOSpecDefault {
           |  }
           |}""".stripMargin
       assertTrue(program.runA(0).value == expected)
+    },
+    test("appending to a tuple renders it flat, like consing") {
+      val pair: IdentState[(Int, Int)] =
+        O.leftEntuple[Int, Int *: EmptyTuple](O.value(1), O.leftEntuple[Int, EmptyTuple](O.value(2), O.emptyTuple))
+      assertTrue(O.rightEntuple[(Int, Int), String](pair, O.value("test")).runA(0).value == "(1, 2, test)")
     }
   )
 }

@@ -68,8 +68,8 @@ object Ops:
 			def >=[A: {Type, Ordering}](l: F[A], r: F[A]): F[Boolean] = Apply[F].map2(l, r)(Ordering[A].gteq)
 			def leftEntuple[A, T <: Tuple](a: F[A], t: F[T]): F[A *: T] = Apply[F].map2(a, t)(_ *: _)
 			def rightEntuple[T <: NonEmptyTuple, A](t: F[T], a: F[A]): F[Tuple.Append[T, A]] = Apply[F].map2(t, a)(_ :* _)
-				def emptyTuple: F[EmptyTuple] = Monad[F].pure(EmptyTuple)
-				def tupleAt[T <: NonEmptyTuple, A: Type](t: F[T], index: Int): F[A] = t.map(_.productElement(index).asInstanceOf[A])
+			def emptyTuple: F[EmptyTuple] = Monad[F].pure(EmptyTuple)
+			def tupleAt[T <: NonEmptyTuple, A: Type](t: F[T], index: Int): F[A] = t.map(_.productElement(index).asInstanceOf[A])
 			def *>[A, B](l: F[A], r: F[B]): F[B] = Apply[F].productR(l)(r)
 
 	given Ops[[a] =>> String] = new Ops[[a] =>> String]:
@@ -98,7 +98,9 @@ object Ops:
 		def > [A: {Type, Ordering}](l: String, r: String): String = s"($l > $r)"
 		def >=[A: {Type, Ordering}](l: String, r: String): String = s"($l >= $r)"
 		def leftEntuple[A, T <: Tuple](a: String, t: String): String = if t == "()" then s"($a)" else s"($a, ${t.substring(1, t.length - 1)})"
-		def rightEntuple[T <: NonEmptyTuple, A](t: String, a: String): String = s"($t, $a)"
+		def rightEntuple[T <: NonEmptyTuple, A](t: String, a: String): String =
+			val inner = if t.startsWith("(") && t.endsWith(")") then t.substring(1, t.length - 1) else t
+			if inner.isEmpty then s"($a)" else s"($inner, $a)"
 		def emptyTuple: String = "()"
 		def tupleAt[T <: NonEmptyTuple, A: Type](t: String, index: Int): String = s"$t._${index + 1}"
 		def *>[A, B](l: String, r: String): String = s"$l\n$r"
@@ -209,7 +211,11 @@ object Ops:
 				id -> (if inner.isEmpty then s"(${a.runA(id).value})" else s"(${a.runA(id).value}, $inner)")
 			}
 		def rightEntuple[T <: NonEmptyTuple, A](t: IdentState[String], a: IdentState[String]): IdentState[String] =
-			State(id => id -> s"(${t.runA(id).value}, ${a.runA(id).value})")
+			State { id =>
+				val init = t.runA(id).value
+				val inner = if init.startsWith("(") && init.endsWith(")") then init.substring(1, init.length - 1) else init
+				id -> (if inner.isEmpty then s"(${a.runA(id).value})" else s"($inner, ${a.runA(id).value})")
+			}
 		def tupleAt[T <: NonEmptyTuple, A: Type](t: IdentState[String], index: Int): IdentState[String] =
 			t.map(s => s"$s._${index + 1}")
 		def *>[A, B](l: IdentState[String], r: IdentState[String]): IdentState[String] =
