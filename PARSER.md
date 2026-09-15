@@ -10,8 +10,8 @@ The Vernix parser provides functionality to parse and execute a Scala-like mini 
 
 The parser is implemented in `Parsing.scala` and provides:
 - **`parseUnknown(s: String)`**: Parses source code and returns `Either[String, Program[?]]`
-- **`parseRun(s: String)`**: Utility method that parses and displays the program in various forms
-- **`main(args: Array[String])`**: Demonstrates the parser with example programs
+
+A parsed `Program` can then be evaluated (`program.evaluate()`), executed in an effect type (`program.execute[F]()`), or rendered back to text (see [Rendered Output Format](#rendered-output-format)).
 
 ## Supported Language Features
 
@@ -22,6 +22,7 @@ The parser supports the following data types:
 - **Int**: Integer literals (e.g., `42`, `-10`, `+5`)
 - **Double**: Floating-point literals (e.g., `3.14`, `2.0d`, `.5d`)
 - **Boolean**: `true` and `false`
+- **String**: Double-quoted literals (e.g., `"hello"`)
 - **Variables**: Named references to stored values
 - **Functions**: Single-parameter functions with type-safe definitions and calls
 
@@ -42,6 +43,9 @@ The parser supports the following data types:
 // Boolean literals
 true
 false
+
+// String literals
+"hello"
 ```
 
 ### Variables
@@ -278,18 +282,93 @@ result match {
 }
 ```
 
-### parseRun
+## Rendered Output Format
 
-Utility method that parses and displays the program in three forms:
+Any `Program` (parsed or built with the DSL) can be rendered back to source-like text by interpreting it with `IdentState`, the pretty-printing interpreter in `IdentState.scala`:
 
 ```scala
-def parseRun(s: String): Unit
+val text: String = program.apply[IdentState].runA(0).value
 ```
 
-**Output format:**
-1. **String representation**: Shows the program structure
-2. **Applied form**: Shows the program after type application
-3. **Execution result**: Shows the result of executing the program with a lazy effect (`Lazy[A] = Eval[Either[Throwable, A]]`)
+The `0` is the starting indentation. The output follows these rules:
+
+**Literals and expressions**
+- Literals render with `toString`: `42`, `3.5`, `true`. String literals render without quotes.
+- Every binary operator is fully parenthesized, regardless of precedence: `(2 + (3 * 4))`, `(x < 10)`, `(a && b)`, `(s ++ t)`.
+- Unary operators: `(-x)`, `(!b)`, `abs(x)`, `s.len`, `x.toDouble`.
+- Tuples render flat: `(1, 2, hello)`. Element access renders as `t._1`.
+
+**Statements**
+- Declarations show the inferred type: `var x: Int = (2 + 3)`.
+- Assignments: `x = (x + 1)`. Variable references: `x`.
+- Functions show parameter and return types, and the body is always a block: `def f(x: Int): Int = { ... }`. Calls: `f(5)`.
+- Sequenced statements go one per line. A block `{ ... }` puts its statements on their own lines, indented by two spaces per nesting level.
+
+**Control flow**
+
+Bodies are always rendered as `{ ... }` blocks. A body that is itself a block from the source keeps its own braces rather than getting a second pair. The condition has two shapes:
+
+- A single-line condition is parenthesized inline, and the `do`/`then` keyword is omitted:
+  ```
+  while (x < 10) {
+    x = (x + 1)
+  }
+  if (i > 0) {
+    i
+  } else {
+    (-i)
+  }
+  repeat {
+    x = (x + 3)
+  } until (x >= 30)
+  ```
+- A multi-line condition (a block with several statements) is rendered as a `{ ... }` block, and the keyword separates it from the body, matching the parser grammar:
+  ```
+  while {
+    var j: Int = 10
+    (i < j)
+  } do {
+    i = (i + 1)
+  }
+  if {
+    var j: Int = 10
+    (i < j)
+  } then {
+    1
+  } else {
+    2
+  }
+  repeat {
+    i = (i + 1)
+  } until {
+    var j: Int = 3
+    (i >= j)
+  }
+  ```
+
+**Example**
+
+Source:
+```scala
+var i = 0
+def triple(x: Int) = x * 3
+while i < 10 do { i = triple(i) + 1 }
+i
+```
+
+Rendered:
+```
+var i: Int = 0
+def triple(x: Int): Int = {
+  (x * 3)
+}
+while (i < 10) {
+  i = (triple(i) + 1)
+}
+i
+```
+
+The rendered text is for display: it is not guaranteed to parse back, since the parser does not accept the type annotation on `var`, and the inline `while (cond) {` form has no `do`.
 
 ## Example Programs
 
@@ -536,7 +615,7 @@ This allows the parser to work with heterogeneous program types while maintainin
 
 Current parser limitations:
 
-1. **String literals**: Not yet implemented in the parser (type system supports strings)
+1. **String operations**: String literals parse, but there are no string operators in the parser syntax
 2. **Multi-parameter functions**: Only single-parameter functions are supported
 3. **Comments**: No support for code comments
 4. **Arrays/Collections**: Not supported in the parser
@@ -546,7 +625,7 @@ Current parser limitations:
 
 Potential enhancements for the parser:
 
-- String literal parsing and operations
+- String operations in the parser syntax
 - Multi-parameter functions
 - Lambda expressions
 - Higher-order functions
@@ -560,6 +639,8 @@ Potential enhancements for the parser:
 
 For comprehensive examples of using the parser and the Vernix DSL, see the test suite in `src/test/scala/io/vernix/`. The test suite includes:
 
+- **ParsingSpec.scala**: Parser syntax, type errors, rendering, and end-to-end example programs
+- **IdentStateSpec.scala**: Rendered output format and indentation
 - **ControlFlowSpec.scala**: Examples of if-then-else, while-do, and repeat-until constructs
 - **VariableSpec.scala**: Variable declaration, assignment, and scoping examples
 - **ProgramSpec.scala**: DSL usage examples for all operations

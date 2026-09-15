@@ -4,7 +4,7 @@ Interpreter for a scala-like mini programming language
 
 ## Documentation
 
-- **[Parser Documentation](PARSER.md)**: Comprehensive guide to the Vernix parser, including syntax, examples, and API usage
+- **[Parser Documentation](PARSER.md)**: Comprehensive guide to the Vernix parser, including syntax, examples, API usage, and the [rendered output format](PARSER.md#rendered-output-format)
 
 ## Quick Start
 
@@ -93,15 +93,19 @@ Unsafe.unsafe { implicit unsafe =>
 - **Type conversions**: `toDouble` for Int to Double conversion
 - **Functions**: Define and call single-parameter functions with type safety
 - **Nested scopes**: Support for nested variable scopes with the `nest` operation
-- **Comprehensive test suite**: 110+ tests covering all major functionality
+- **Tuples**: Tuple literals, element access, and destructuring `var (a, b) = ...` bindings
+- **Pretty-printer**: Render any program back to source-like text with the `IdentState` interpreter
+- **JSON codec**: Encode and decode programs with Circe via `ProgramCodec`
+- **Comprehensive test suite**: 220 tests covering all major functionality
 
 ## Project Structure
 
 - `src/main/scala/io/vernix/`
   - `Parsing.scala`: Text parser implementation
   - `programs.scala`: Core Program DSL
-  - `expressions.scala`: Compiled expression types
   - `ops.scala`: Operation implementations
+  - `IdentState.scala`: Pretty-printing interpreter
+  - `ProgramCodec.scala`: Circe JSON codec for programs
   - `Type.scala`: Type system definitions
   - `ParsingOps.scala`: Parser helper operations
   - `VarHeap.scala`: Variable heap for managing variable state
@@ -110,9 +114,12 @@ Unsafe.unsafe { implicit unsafe =>
 
 - `src/test/scala/io/vernix/`
   - `ProgramSpec.scala`: Tests for Program DSL operations
-  - `ExprSpec.scala`: Tests for Expr operations
+  - `ParsingSpec.scala`: Tests for the text parser
   - `VariableSpec.scala`: Tests for variable management
   - `ControlFlowSpec.scala`: Tests for control flow constructs
+  - `TupleSpec.scala`: Tests for tuple operations
+  - `IdentStateSpec.scala`: Tests for the pretty-printer output
+  - `JsonCodecSpec.scala`: Tests for the JSON codec
   - `TypeSpec.scala`: Tests for type system
   - `VarHeapSpec.scala`: Tests for VarHeap operations
 
@@ -128,12 +135,15 @@ sbt package
 
 Vernix includes a comprehensive test suite using ZIO Test. The test suite covers:
 
+- **Parser** (76 tests): Literals, operators, control flow, functions, tuples, type errors, rendering, and end-to-end programs
 - **Program DSL operations** (27 tests): Arithmetic, string, boolean, comparison operations, type conversions, and sequencing
+- **JSON codec** (28 tests): Round-tripping programs through Circe JSON
+- **Type system** (19 tests): Basic types, complex types, nested types, and type inference
+- **Tuples** (17 tests): Tuple construction, access, and rendering
+- **VarHeap operations** (16 tests): Variable management and scope management
+- **Pretty-printer** (14 tests): Rendered output format and indentation
 - **Variable management** (12 tests): Variable declaration, assignment, scoping, and error handling
 - **Control flow** (11 tests): if-then-else, while-do, repeat-until loops, and complex control flow scenarios
-- **Expression operations** (24 tests): All Expr operations including arithmetic, boolean logic, comparisons, and conversions
-- **Type system** (20 tests): Basic types, complex types, nested types, and type inference
-- **VarHeap operations** (16 tests): Variable management and scope management
 
 ### Running Tests
 
