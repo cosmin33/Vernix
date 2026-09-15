@@ -65,7 +65,7 @@ object IdentStateSpec extends ZIOSpecDefault {
           |while {
           |  (1 < 10)
           |} do {
-          |  if ((1 == 2)) {
+          |  if (1 == 2) {
           |    repeat {
           |      5
           |    } until {
@@ -106,7 +106,7 @@ object IdentStateSpec extends ZIOSpecDefault {
         S.addFunction[Int, Int]("f", "i", O.ifElse(O.`>`[Int](i, O.value(0)))(i, O.neg[Int](i)))
       val expected =
         """def f(i: Int): Int = {
-          |  if ((i > 0)) {
+          |  if (i > 0) {
           |    i
           |  } else {
           |    (-i)

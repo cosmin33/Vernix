@@ -145,10 +145,11 @@ object Ops:
 			}
 		def ifElse[A](cond: IdentState[String])(ifTrue: => IdentState[String], ifFalse: => IdentState[String]): IdentState[String] =
 			State { i =>
-				val cnd = cond.runA(i).value
+				val rendered = cond.runA(i).value
+				val cnd = if rendered.startsWith("(") && rendered.endsWith(")") then rendered else s"($rendered)"
 				val ift = ifTrue.runA(i + 2).value
 				val iff = ifFalse.runA(i + 2).value
-				i -> (s"if ($cnd) {" + "\n" + ift.ident(i + 2) + "\n" + "} else {".ident(i) + "\n" + iff.ident(i + 2) + "\n" + "}".ident(i))
+				i -> (s"if $cnd {" + "\n" + ift.ident(i + 2) + "\n" + "} else {".ident(i) + "\n" + iff.ident(i + 2) + "\n" + "}".ident(i))
 			}
 		def and(l: IdentState[String], r: IdentState[String]): IdentState[String] =
 			l.flatMap(l => r.map(r => s"($l && $r)"))
