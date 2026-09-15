@@ -62,19 +62,23 @@ object Statements:
 			def set(s: VarHeap): F[Unit] = Monad[F].pure {heap = s}
 		summon
 
-	given Statements[[a] =>> String] = new Statements[[a] =>> String]:
-		def variable[A: Type](name: String): String = s"$name"
-		def addVar[A: Type](name: String, value: String): String = s"var $name: ${Type[A].name} = $value"
-		def setVar[A: Type](name: String, value: String): String = s"$name = $value"
-		def nest[A](fa: String): String = s"{$fa}"
-		def addFunction[A: Type, B: Type](name: String, argName: String, body: String): String =
-			s"""
-			|def $name($argName: ${Type[A].name}): ${Type[B].name} = {
-			|	$body
-			|}
-			""".stripMargin
-		def callFunction[A: Type, B: Type](name: String, arg: String): String = s"$name($arg)"
+	given Statements[IdentState] = new Statements[IdentState]:
+		import IdentState.ident
 
+		def variable[A: Type](name: String): IdentState[A] = State.pure(name)
+		def addVar[A: Type](name: String, value: IdentState[A]): IdentState[Unit] =
+			value.map(v => s"var $name: ${Type[A].name} = $v")
+		def setVar[A: Type](name: String, value: IdentState[A]): IdentState[Unit] =
+			value.map(v => s"$name = $v")
+		def nest[A](fa: IdentState[A]): IdentState[A] =
+			State(i => i -> ("{" + "\n" + fa.runA(i + 2).value.ident(i + 2) + "\n" + "}".ident(i)))
+		def addFunction[A: Type, B: Type](name: String, argName: String, body: IdentState[B]): IdentState[Unit] =
+			State { i =>
+				val b = body.runA(i + 2).value
+				i -> (s"def $name($argName: ${Type[A].name}): ${Type[B].name} = {" + "\n" + b.ident(i + 2) + "\n" + "}".ident(i))
+			}
+		def callFunction[A: Type, B: Type](name: String, arg: IdentState[A]): IdentState[B] =
+			arg.map(a => s"$name($a)")
 
 	given Statements[Type] = new Statements[Type]:
 		def variable[A: Type](name: String): Type[A] = Type[A]

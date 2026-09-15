@@ -62,8 +62,8 @@ object TupleSpec extends ZIOSpecDefault {
       },
       test("appending renders flat, like consing") {
         assertTrue(
-          appended.apply[[a] =>> String] == "(1, 2, test)",
-          appended.apply[[a] =>> String] == tup.apply[[a] =>> String]
+          appended.apply[IdentState].runA(0).value == "(1, 2, test)",
+          appended.apply[IdentState].runA(0).value == tup.apply[IdentState].runA(0).value
         )
       },
       // Only reachable when a caller forges a `Type` from a name (`ProgramCodec` does); statically

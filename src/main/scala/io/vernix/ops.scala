@@ -72,39 +72,6 @@ object Ops:
 			def tupleAt[T <: NonEmptyTuple, A: Type](t: F[T], index: Int): F[A] = t.map(_.productElement(index).asInstanceOf[A])
 			def *>[A, B](l: F[A], r: F[B]): F[B] = Apply[F].productR(l)(r)
 
-	given Ops[[a] =>> String] = new Ops[[a] =>> String]:
-		def value[A: Type](v: A): String = v.toString
-		def add[N: {Type, Numeric}](l: String, r: String): String = s"($l + $r)"
-		def sub[N: {Type, Numeric}](l: String, r: String): String = s"($l - $r)"
-		def mul[N: {Type, Numeric}](l: String, r: String): String = s"($l * $r)"
-		def div[N: {Type, Fractional}](l: String, r: String): String = s"($l / $r)"
-		def quot[N: {Type, Integral}](l: String, r: String): String = s"($l / $r)"
-		def mod[N: {Type, Integral}](l: String, r: String): String = s"($l % $r)"
-		def neg[N: {Type, Numeric}](a: String): String = s"(-$a)"
-		def abs[N: {Type, Numeric}](a: String): String = s"abs($a)"
-		def len(fa: String): String = s"$fa.len"
-		def toDouble(fa: String): String = s"$fa.toDouble"
-		def concat(l: String, r: String): String = s"($l ++ $r)"
-		def repeatUntil[A](action: => String)(condition: => String): String = s"repeat { $action } until { $condition }"
-		def whileDo[A](condition: => String)(action: => String): String = s"while { $condition } do { $action }"
-		def ifElse[A](cond: String)(ifTrue: => String, ifFalse: => String): String = s"if ($cond) { $ifTrue } else { $ifFalse }"
-		def and(l: String, r: String): String = s"($l && $r)"
-		def or(l: String, r: String): String = s"($l || $r)"
-		def not(a: String): String = s"(!$a)"
-		def equals[A: Type](l: String, r: String): String = s"($l == $r)"
-		def notEquals[A: Type](l: String, r: String): String = s"($l != $r)"
-		def < [A: {Type, Ordering}](l: String, r: String): String = s"($l < $r)"
-		def <=[A: {Type, Ordering}](l: String, r: String): String = s"($l <= $r)"
-		def > [A: {Type, Ordering}](l: String, r: String): String = s"($l > $r)"
-		def >=[A: {Type, Ordering}](l: String, r: String): String = s"($l >= $r)"
-		def leftEntuple[A, T <: Tuple](a: String, t: String): String = if t == "()" then s"($a)" else s"($a, ${t.substring(1, t.length - 1)})"
-		def rightEntuple[T <: NonEmptyTuple, A](t: String, a: String): String =
-			val inner = if t.startsWith("(") && t.endsWith(")") then t.substring(1, t.length - 1) else t
-			if inner.isEmpty then s"($a)" else s"($inner, $a)"
-		def emptyTuple: String = "()"
-		def tupleAt[T <: NonEmptyTuple, A: Type](t: String, index: Int): String = s"$t._${index + 1}"
-		def *>[A, B](l: String, r: String): String = s"$l\n$r"
-
 	given Ops[Type] = new Ops[Type]:
 		def value[A: Type](v: A): Type[A] = Type[A]
 		def add[N: {Type, Numeric}](l: Type[N], r: Type[N]): Type[N] = Type[N]
@@ -138,11 +105,9 @@ object Ops:
 		def tupleAt[T <: NonEmptyTuple, A: Type](t: Type[T], index: Int): Type[A] = Type[A]
 		def *>[A, B](l: Type[A], r: Type[B]): Type[B] = r
 
-	type IdentState[A] = State[Int, String]
-	extension(s: String)
-		def ident(n: Int): String = (" " * n) + s
-
 	given Ops[IdentState] = new Ops[IdentState]:
+		import IdentState.ident
+
 		def value[A: Type](v: A): IdentState[String] = State.pure(v.toString)
 		def add[N: {Type, Numeric}](l: IdentState[N], r: IdentState[N]): IdentState[N] =
 			l.flatMap(l => r.map(r => s"($l + $r)"))

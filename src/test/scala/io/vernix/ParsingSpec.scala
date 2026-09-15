@@ -23,7 +23,7 @@ object ParsingSpec extends ZIOSpecDefault {
   private def render(src: String): String =
     Parsing.parseUnknown(src) match
       case Left(err) => throw new AssertionError(s"parse failed: $err")
-      case Right(p)  => p.apply[[a] =>> String]
+      case Right(p)  => p.apply[IdentState].runA(0).value
 
   private def parseFails(src: String): Boolean = Parsing.parseUnknown(src).isLeft
 
